@@ -1,0 +1,172 @@
+---
+title: 'AccumulativeShadows: Progressive Soft Shadow Baking'
+description: 'Planar Y-up shadow catcher that bakes soft shadows over frames with zero ongoing GPU cost. Pairs with RandomizedLight for ray-traced-style results.'
+---
+
+`AccumulativeShadows` is a Y-up oriented shadow catcher that progressively accumulates shadow frames into a texture. Once all frames have rendered, the shadow is essentially baked and has zero per-frame GPU cost. In `temporal` mode, accumulation spreads across real time frames for a performant progressive refinement. Pair it with `RandomizedLight`, which jitters directional lights across frames to produce soft, raycast-like shadows and ambient occlusion.
+
+<Note>
+  The canvas must have `shadows` enabled and scene objects must have `castShadow` set to `true` for `AccumulativeShadows` to receive any data.
+</Note>
+
+## AccumulativeShadows props
+
+<ParamField path="frames" type="number" default="40">
+  Number of frames to accumulate. More frames produce cleaner results but take longer to settle. Set to `Infinity` for continuous real-time accumulation.
+</ParamField>
+
+<ParamField path="blend" type="number" default="20">
+  Blending window used when `frames === Infinity`. Controls the rolling average rate.
+</ParamField>
+
+<ParamField path="limit" type="number" default="Infinity">
+  Maximum number of frames to render when `frames === Infinity`. Use this to cap accumulation once the scene has settled.
+</ParamField>
+
+<ParamField path="scale" type="number" default="10">
+  Size of the shadow catcher plane.
+</ParamField>
+
+<ParamField path="temporal" type="boolean" default="false">
+  Spreads accumulation across real render frames instead of computing all frames synchronously. More performant but initially shows lower quality shadows.
+</ParamField>
+
+<ParamField path="opacity" type="number" default="1">
+  Opacity of the shadow plane.
+</ParamField>
+
+<ParamField path="alphaTest" type="number" default="0.75">
+  Alpha threshold below which shadow pixels are discarded. Adjust to control shadow edge softness.
+</ParamField>
+
+<ParamField path="color" type="string" default="'black'">
+  Shadow color.
+</ParamField>
+
+<ParamField path="colorBlend" type="number" default="2">
+  How strongly the shadow colors blend toward black. `0` produces pure black shadows; higher values retain more color.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="1024">
+  Resolution of the accumulated shadow buffer in pixels.
+</ParamField>
+
+<ParamField path="toneMapped" type="boolean" default="true">
+  Whether the shadow texture is tone-mapped.
+</ParamField>
+
+## RandomizedLight props
+
+<ParamField path="amount" type="number" default="8">
+  Number of directional lights used for jittering. More lights produce smoother shadows but increase the per-frame cost.
+</ParamField>
+
+<ParamField path="radius" type="number" default="1">
+  Jitter radius. Higher values spread the lights further and produce softer, more ambient shadows.
+</ParamField>
+
+<ParamField path="position" type="[x: number, y: number, z: number]" default="[0, 0, 0]">
+  Base position of the light group. Lights are jittered around this position.
+</ParamField>
+
+<ParamField path="intensity" type="number">
+  Intensity of each light. Defaults to `Math.PI` on Three.js r155+ or `1` on older versions, divided by `amount`.
+</ParamField>
+
+<ParamField path="ambient" type="number" default="0.5">
+  Fraction of lights placed in ambient positions (random hemisphere) versus directional positions. Lower values increase the directional look; higher values add more ambient occlusion.
+</ParamField>
+
+<ParamField path="castShadow" type="boolean" default="true">
+  Whether the randomized lights cast shadows.
+</ParamField>
+
+<ParamField path="bias" type="number" default="0.001">
+  Shadow map bias for the individual directional lights.
+</ParamField>
+
+<ParamField path="mapSize" type="number" default="512">
+  Shadow map size per light.
+</ParamField>
+
+<ParamField path="size" type="number" default="5">
+  Size of each light's orthographic shadow camera frustum.
+</ParamField>
+
+<ParamField path="near" type="number" default="0.5">
+  Near plane of each shadow camera.
+</ParamField>
+
+<ParamField path="far" type="number" default="500">
+  Far plane of each shadow camera.
+</ParamField>
+
+## Imperative API
+
+The ref forwarded from `AccumulativeShadows` exposes an `AccumulativeContext`:
+
+| Method | Description |
+|--------|-------------|
+| `getMesh()` | Returns the shadow plane mesh. |
+| `reset()` | Clears accumulated buffers and resets the frame count. |
+| `update(frames?)` | Manually accumulates a given number of frames. |
+
+## Usage
+
+### Basic accumulative shadows
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { AccumulativeShadows, RandomizedLight } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas shadows>
+      <mesh castShadow position={[0, 1, 0]}>
+        <sphereGeometry />
+        <meshStandardMaterial color="royalblue" />
+      </mesh>
+      <AccumulativeShadows temporal frames={100} scale={10}>
+        <RandomizedLight amount={8} position={[5, 5, -10]} />
+      </AccumulativeShadows>
+    </Canvas>
+  )
+}
+```
+
+### Multiple light sources
+
+Add multiple `RandomizedLight` instances with different positions to simulate multiple light sources.
+
+```jsx
+<AccumulativeShadows temporal frames={80} scale={12} color="#260f02">
+  <RandomizedLight
+    castShadow
+    amount={4}
+    position={[5, 5, -10]}
+    radius={4}
+    ambient={0.25}
+  />
+  <RandomizedLight
+    castShadow
+    amount={4}
+    position={[-5, 5, -9]}
+    radius={3}
+    ambient={0.55}
+  />
+</AccumulativeShadows>
+```
+
+### Instant non-temporal bake
+
+For static scenes, disable `temporal` for immediate full-quality results at a higher initial cost.
+
+```jsx
+<AccumulativeShadows frames={200} scale={8} opacity={0.9} alphaTest={0.85}>
+  <RandomizedLight amount={8} radius={5} position={[0, 8, 0]} />
+</AccumulativeShadows>
+```
+
+<Tip>
+  In temporal mode, the shadow quality improves over the first few seconds of rendering. Set `limit` to stop accumulating once the shadow has converged to avoid wasted frames.
+</Tip>

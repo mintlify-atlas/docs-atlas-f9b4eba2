@@ -1,0 +1,97 @@
+---
+title: "Merged: instance existing meshes with one draw call each"
+description: "Turn any collection of THREE.Mesh objects into GPU instances so each unique mesh costs exactly one draw call, regardless of how many copies you place."
+---
+
+`Merged` wraps `Instances` to create instance types directly from pre-existing `THREE.Mesh` objects — typically meshes that come out of a GLTF file or are constructed programmatically. Each unique geometry/material pair costs exactly one draw call, no matter how many copies you render. This is the fastest way to add instancing to a scene that already has mesh references.
+
+## Basic usage
+
+Pass an array of `THREE.Mesh` objects as the `meshes` prop. The render prop receives one instanced component per mesh, in the same order.
+
+```jsx
+import { Merged } from '@react-three/drei'
+
+function Scene({ box, sphere }) {
+  return (
+    <Merged meshes={[box, sphere]}>
+      {(Box, Sphere) => (
+        <>
+          <Box position={[-2, 0, 0]} color="red" />
+          <Box position={[-3, -1, 0]} color="tomato" />
+          <Sphere scale={0.7} position={[2, 1, 0]} color="green" />
+          <Sphere scale={0.7} position={[3, 2, 0]} color="teal" />
+        </>
+      )}
+    </Merged>
+  )
+}
+```
+
+## Object notation for GLTF models
+
+When working with loaded GLTF files, pass `nodes` directly. `Merged` filters out any non-mesh entries automatically, and the render prop receives a matching object of instanced components.
+
+```jsx
+import { useGLTF, Merged } from '@react-three/drei'
+
+function Model({ url }) {
+  const { nodes } = useGLTF(url)
+  return (
+    <Merged meshes={nodes}>
+      {({ Screw, Filter, Pipe }) => (
+        <>
+          <Screw />
+          <Filter position={[1, 2, 3]} />
+          <Pipe position={[4, 5, 6]} />
+          <Screw position={[2, 0, 0]} color="silver" />
+        </>
+      )}
+    </Merged>
+  )
+}
+```
+
+## Props
+
+<ParamField path="meshes" type="THREE.Mesh[] | Record<string, THREE.Object3D>" required>
+  Source meshes to create instance types from. Pass an array for positional
+  component names in the render prop, or a record (e.g. `nodes` from
+  `useGLTF`) for named components. Non-mesh entries in a record are ignored.
+</ParamField>
+
+<ParamField path="children" type="(...instances: React.FC[]) => ReactNode" required>
+  Render prop receiving one instanced component per source mesh. Array mode
+  provides positional arguments; object mode provides a named object.
+</ParamField>
+
+<ParamField path="limit" type="number" default="1000">
+  Maximum instances per mesh type. Passed down to the underlying `Instances`
+  component for each mesh.
+</ParamField>
+
+<ParamField path="range" type="number">
+  Draw range override passed to each underlying `Instances` component.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  Number of frames to run the matrix update loop. Set to a fixed number to
+  stop syncing transforms once the scene is static.
+</ParamField>
+
+## How it works
+
+Internally, `Merged` creates one `<Instances>` tree per unique mesh, extracting the geometry and material from each source `THREE.Mesh`. It then uses recursive rendering to compose the nested context providers, so each instance component dispatches to the correct instanced mesh.
+
+<Note>
+  Each unique mesh in `meshes` generates its own `THREE.InstancedMesh`. If
+  your GLTF has 20 distinct mesh types, you will have 20 draw calls —
+  one per type, regardless of the copy count. Merging models with fewer
+  distinct meshes gives better batching results.
+</Note>
+
+<Tip>
+  Pre-compute GLTF meshes once at the top of your component tree and pass them
+  to `Merged` as a stable reference. Changing the `meshes` prop causes all
+  instance buffers to be recreated.
+</Tip>

@@ -1,0 +1,181 @@
+---
+title: "PerformanceMonitor: adaptive quality based on measured FPS"
+description: "Collect rolling FPS averages and trigger callbacks to raise or lower scene quality automatically, keeping your app smooth on any device."
+---
+
+`PerformanceMonitor` samples frame timestamps over a configurable window, computes rolling averages, and calls `onIncline` or `onDecline` when those averages consistently exceed or fall below defined bounds. This lets you adapt scene quality — resolution, effect intensity, mesh detail — without guessing at device capabilities. A `factor` value between 0 and 1 moves up and down with each incline or decline, giving you a continuous quality signal that drives gradual changes. If the system oscillates too many times, `onFallback` fires with a final baseline factor so you can lock quality at the lowest safe setting.
+
+## Basic DPR regulation
+
+The simplest use: drop quality when the device can't maintain target FPS, and raise it when there is headroom.
+
+```jsx
+import { useState } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { PerformanceMonitor } from '@react-three/drei'
+
+function App() {
+  const [dpr, setDpr] = useState(1.5)
+  return (
+    <Canvas dpr={dpr}>
+      <PerformanceMonitor
+        onIncline={() => setDpr(2)}
+        onDecline={() => setDpr(1)}
+      />
+      <Scene />
+    </Canvas>
+  )
+}
+```
+
+## Gradual quality with the factor
+
+The `factor` prop starts at 0.5 and moves toward 1 on each incline, toward 0 on each decline. Use `onChange` to map it to any quality dimension.
+
+```jsx
+import { useState } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { PerformanceMonitor } from '@react-three/drei'
+
+function App() {
+  const [dpr, setDpr] = useState(2)
+  return (
+    <Canvas dpr={dpr}>
+      <PerformanceMonitor
+        factor={1}
+        onChange={({ factor }) => setDpr(Math.max(0.5, Math.min(2, 0.5 + 1.5 * factor)))}
+      />
+      <Scene />
+    </Canvas>
+  )
+}
+```
+
+## Preventing flip-flops with a fallback
+
+If the system oscillates too many times between incline and decline, lock quality at a safe baseline:
+
+```jsx
+<PerformanceMonitor
+  flipflops={3}
+  onFallback={() => setDpr(1)}
+/>
+```
+
+## Per-component subscriptions with usePerformanceMonitor
+
+Wrap your app in `<PerformanceMonitor>` to give nested components access to performance events via the `usePerformanceMonitor` hook. This avoids prop drilling for complex quality hierarchies.
+
+```jsx
+import { PerformanceMonitor, usePerformanceMonitor } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas>
+      <PerformanceMonitor>
+        <Effects />
+        <Scene />
+      </PerformanceMonitor>
+    </Canvas>
+  )
+}
+
+function Effects() {
+  usePerformanceMonitor({
+    onIncline() { /* enable bloom */ },
+    onDecline() { /* disable bloom */ },
+    onChange({ factor }) { /* adjust intensity */ },
+  })
+  // ...
+}
+```
+
+## Props
+
+<ParamField path="ms" type="number" default="250">
+  Duration of each FPS sampling window in milliseconds. Shorter values
+  react faster but are noisier; longer values are smoother but slower to
+  respond.
+</ParamField>
+
+<ParamField path="iterations" type="number" default="10">
+  Number of sampling windows to collect before evaluating incline or decline.
+  A higher value smooths out transient spikes at the cost of slower reaction.
+</ParamField>
+
+<ParamField path="threshold" type="number" default="0.75">
+  Fraction of iterations that must exceed the upper bound (or fall below the
+  lower bound) to trigger `onIncline` or `onDecline`. At the default of 0.75,
+  7 of 10 averages must cross a bound before a callback fires.
+</ParamField>
+
+<ParamField path="bounds" type="(refreshrate: number) => [lower: number, upper: number]" default="(r) => r > 100 ? [60, 100] : [40, 60]">
+  Function that receives the measured peak FPS (proxy for device refresh rate)
+  and returns `[lower, upper]` bounds. FPS within this range causes no
+  callbacks, creating a stable zone that prevents oscillation.
+</ParamField>
+
+<ParamField path="flipflops" type="number" default="Infinity">
+  Maximum number of incline/decline flips before `onFallback` fires. After
+  the fallback triggers, the monitor stops collecting samples.
+</ParamField>
+
+<ParamField path="factor" type="number" default="0.5">
+  Initial factor value. Set to `0` if your app starts at minimum quality and
+  scales up, `1` if it starts at maximum quality and scales down.
+</ParamField>
+
+<ParamField path="step" type="number" default="0.1">
+  Amount added to or subtracted from `factor` on each incline or decline
+  event. Smaller values produce finer-grained quality gradation.
+</ParamField>
+
+<ParamField path="onIncline" type="(api: PerformanceMonitorApi) => void">
+  Called when FPS averages are consistently above the upper bound. The API
+  object carries `fps`, `factor`, `refreshrate`, `frames`, and `averages`.
+</ParamField>
+
+<ParamField path="onDecline" type="(api: PerformanceMonitorApi) => void">
+  Called when FPS averages are consistently below the lower bound.
+</ParamField>
+
+<ParamField path="onChange" type="(api: PerformanceMonitorApi) => void">
+  Called whenever `factor` changes in either direction. Useful for continuous
+  quality mapping instead of binary on/off logic.
+</ParamField>
+
+<ParamField path="onFallback" type="(api: PerformanceMonitorApi) => void">
+  Called once when `flipflops` is exceeded. Use this to lock the app to a
+  safe minimum quality baseline. After this fires, the monitor shuts down.
+</ParamField>
+
+<ParamField path="children" type="ReactNode">
+  Child components that can call `usePerformanceMonitor` to subscribe to
+  performance events.
+</ParamField>
+
+## Callback API
+
+All callbacks receive a `PerformanceMonitorApi` object:
+
+| Field | Type | Description |
+|---|---|---|
+| `fps` | `number` | Most recent FPS measurement |
+| `factor` | `number` | Current quality factor, 0–1 |
+| `refreshrate` | `number` | Highest FPS seen so far (proxy for device refresh rate) |
+| `frames` | `number[]` | Raw frame timestamps for the current window |
+| `averages` | `number[]` | Computed FPS averages across iterations |
+| `fallback` | `boolean` | `true` after `onFallback` has fired |
+
+<Note>
+  `PerformanceMonitor` stops collecting samples after `onFallback` fires.
+  This is intentional — once the device has demonstrated it cannot sustain
+  the minimum target quality, further sampling only adds overhead.
+</Note>
+
+<Tip>
+  Pair `PerformanceMonitor` with `AdaptiveDpr` for the simplest adaptive
+  resolution setup. Use `PerformanceMonitor` directly when you need to adapt
+  more than just pixel ratio — for example, shadow map resolution, particle
+  counts, or post-processing passes.
+</Tip>

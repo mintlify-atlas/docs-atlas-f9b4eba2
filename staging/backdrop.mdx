@@ -1,0 +1,92 @@
+---
+title: 'Backdrop: Curved Studio Cyclorama Background Plane'
+description: 'A curved plane that simulates a studio cyclorama backdrop. Breaks up flat shadows and adds depth to product and model presentations.'
+---
+
+`Backdrop` renders a curved plane that mimics a photography studio cyclorama — a seamless sweep from floor to wall. Placing geometry and lights in front of it produces more natural shadow gradients and depth than a flat plane. The curve is generated from a subdivided `PlaneGeometry` whose vertices are displaced using an exponential ease function.
+
+## Props
+
+<ParamField path="floor" type="number" default="0.25">
+  Stretch factor for the floor segment. Higher values make the horizontal portion of the curve longer.
+</ParamField>
+
+<ParamField path="segments" type="number" default="20">
+  Number of geometry subdivisions. More segments produce a smoother curve but use slightly more memory.
+</ParamField>
+
+<ParamField path="receiveShadow" type="boolean">
+  When `true`, the backdrop mesh receives shadows cast by objects in the scene.
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode">
+  Material to apply to the backdrop mesh. Typically a `meshStandardMaterial` or `meshLambertMaterial`.
+</ParamField>
+
+## Usage
+
+### Basic backdrop
+
+Pass a material as a child to control the backdrop appearance.
+
+```jsx
+import { Backdrop } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Backdrop floor={0.25} segments={20}>
+      <meshStandardMaterial color="#353540" />
+    </Backdrop>
+  )
+}
+```
+
+### Shadow-receiving backdrop
+
+Enable `receiveShadow` to catch shadows from objects placed in front of it.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { Backdrop } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas shadows>
+      <directionalLight position={[5, 5, 5]} castShadow />
+      <Backdrop receiveShadow floor={0.5} segments={30}>
+        <meshStandardMaterial color="#f0ede8" />
+      </Backdrop>
+      <mesh castShadow position={[0, 0.5, 0]}>
+        <boxGeometry />
+        <meshStandardMaterial color="steelblue" />
+      </mesh>
+    </Canvas>
+  )
+}
+```
+
+### With Stage
+
+`Backdrop` pairs naturally with `Stage` to provide a custom background behind the auto-lit scene.
+
+```jsx
+import { Stage, Backdrop, OrbitControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <Stage>
+        <Model />
+      </Stage>
+      <Backdrop floor={0.3} position={[0, -0.5, -1]}>
+        <meshStandardMaterial color="#1a1a2e" />
+      </Backdrop>
+      <OrbitControls makeDefault />
+    </>
+  )
+}
+```
+
+<Tip>
+  Increasing `segments` beyond 40 provides diminishing visual returns. Keep it between 20 and 40 for most use cases.
+</Tip>

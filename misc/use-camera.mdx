@@ -1,0 +1,82 @@
+---
+title: "Raycast with a non-default camera using useCamera"
+description: "useCamera returns a raycast function wired to a custom camera, fixing pointer event hit detection for meshes in HUDs, portals, and secondary views."
+---
+
+`useCamera` solves a specific problem: when you render objects using a camera other than the default scene camera — for example inside a HUD layer, a portal, or a secondary view — React Three Fiber's pointer events still use the default camera for raycasting. Passing the return value of `useCamera` as the `raycast` prop on a mesh overrides that behaviour for that mesh alone.
+
+## Signature
+
+```tsx
+function useCamera(
+  camera: Camera | React.RefObject<Camera>,
+  props?: Partial<Raycaster>
+): (raycaster: Raycaster, intersects: Intersection[]) => void
+```
+
+## Parameters
+
+<ParamField path="camera" type="Camera | React.RefObject<Camera>" required>
+  The camera to use for raycasting. Accepts a `THREE.Camera` instance directly or a React ref whose `.current` holds the camera.
+</ParamField>
+
+<ParamField path="props" type="Partial<Raycaster>">
+  Optional properties applied to the internal `Raycaster` via `applyProps`. Use this to set `near`, `far`, or `params` on the raycaster.
+</ParamField>
+
+## Return value
+
+A raycast function compatible with the `raycast` prop on any `<mesh>` or other Three.js object in React Three Fiber.
+
+## Usage
+
+```jsx
+import { useRef } from 'react'
+import { PerspectiveCamera } from 'three'
+import { useCamera } from '@react-three/drei'
+
+function HUDMesh() {
+  const hudCamera = useRef(new PerspectiveCamera(50, 1, 0.1, 100))
+  const raycast = useCamera(hudCamera)
+
+  return (
+    <mesh raycast={raycast} onClick={(e) => console.log('clicked HUD element', e)}>
+      <planeGeometry args={[1, 0.5]} />
+      <meshBasicMaterial color="royalblue" depthTest={false} />
+    </mesh>
+  )
+}
+```
+
+### With a Hud component
+
+`useCamera` is often used alongside drei's `Hud` component, which renders its children with a separate camera:
+
+```jsx
+import { useRef } from 'react'
+import { OrthographicCamera } from 'three'
+import { Hud, useCamera } from '@react-three/drei'
+
+function Overlay() {
+  const cam = useRef()
+  const raycast = useCamera(cam)
+
+  return (
+    <Hud renderPriority={1}>
+      <orthographicCamera ref={cam} makeDefault={false} position={[0, 0, 10]} />
+      <mesh raycast={raycast} onClick={() => console.log('HUD click')}>
+        <planeGeometry args={[0.4, 0.2]} />
+        <meshBasicMaterial color="white" depthTest={false} />
+      </mesh>
+    </Hud>
+  )
+}
+```
+
+<Tip>
+  The hook creates a single `Raycaster` instance per component and re-uses it every frame. You only need one `useCamera` call per unique camera; apply the same returned `raycast` function to every mesh that should respond to that camera's pointer events.
+</Tip>
+
+<Warning>
+  Without `useCamera`, pointer events on meshes rendered in portals or HUDs will use the default scene camera for raycasting. This causes missed clicks or incorrect intersection points whenever the HUD camera has a different position, projection, or aspect ratio.
+</Warning>

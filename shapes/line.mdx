@@ -1,0 +1,114 @@
+---
+title: 'Line: world-space lines with consistent pixel-width'
+description: 'Renders a THREE.Line2 or LineSegments2 with configurable pixel width, vertex colors, and dashing — accepts 2D and 3D point arrays.'
+---
+
+`Line` renders a `THREE.Line2` (or `THREE.LineSegments2` when `segments` is `true`) using the `LineMaterial` from `three-stdlib`. Unlike the built-in `THREE.Line`, the width is expressed in screen pixels and stays consistent regardless of distance from the camera. Points can be `Vector2`, `Vector3`, or plain arrays. Vertex colors accept both RGB tuples and RGBA tuples — passing RGBA arrays enables transparency automatically.
+
+## Props
+
+<ParamField path="points" type="Array<Vector2 | Vector3 | [number, number] | [number, number, number]>" required>
+  Array of points defining the line path. Both 2D and 3D values are accepted; 2D points are promoted to 3D with `z = 0`.
+</ParamField>
+
+<ParamField path="color" type="ColorRepresentation" default="0xffffff">
+  Line color. Ignored when `vertexColors` is provided (the color is forced to white so per-vertex colors render correctly).
+</ParamField>
+
+<ParamField path="lineWidth" type="number" default="1">
+  Line width in pixels. Also accepted as `linewidth` (lowercase) for compatibility with `LineMaterial`.
+</ParamField>
+
+<ParamField path="segments" type="boolean">
+  When `true`, renders as `THREE.LineSegments2` — each consecutive pair of points forms an independent segment with no connecting joins.
+</ParamField>
+
+<ParamField path="dashed" type="boolean" default="false">
+  Enables dashed rendering via `LineMaterial`'s `USE_DASH` define. Combine with `dashSize` and `gapSize` material props to control the dash pattern.
+</ParamField>
+
+<ParamField path="vertexColors" type="Array<Color | [number, number, number] | [number, number, number, number]>">
+  Per-vertex color array. RGB and RGBA tuples are both accepted. Providing RGBA values automatically enables transparency on the material.
+</ParamField>
+
+All additional props are spread onto both the `Line2` object and the `LineMaterial`, so `dashSize`, `gapSize`, `alphaToCoverage`, and other material parameters work directly.
+
+## Usage
+
+<CodeGroup>
+
+```jsx Solid colored line
+import { Line } from '@react-three/drei'
+
+function RedLine() {
+  return (
+    <Line
+      points={[[-2, 0, 0], [0, 2, 0], [2, 0, 0]]}
+      color="red"
+      lineWidth={2}
+    />
+  )
+}
+```
+
+```jsx Vertex colors
+import { Line } from '@react-three/drei'
+
+function RainbowLine() {
+  return (
+    <Line
+      points={[[-2, 0, 0], [0, 0, 0], [2, 0, 0]]}
+      vertexColors={[
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+      ]}
+      lineWidth={3}
+    />
+  )
+}
+```
+
+```jsx Dashed line
+import { Line } from '@react-three/drei'
+
+function DashedLine() {
+  return (
+    <Line
+      points={[[-3, 0, 0], [3, 0, 0]]}
+      color="white"
+      lineWidth={1}
+      dashed
+      dashSize={0.2}
+      gapSize={0.1}
+    />
+  )
+}
+```
+
+```jsx Line segments (independent pairs)
+import { Line } from '@react-three/drei'
+
+function GridLines() {
+  // Each pair of consecutive points forms a separate segment
+  const points = [
+    [-1, -1, 0], [1, -1, 0],
+    [-1,  0, 0], [1,  0, 0],
+    [-1,  1, 0], [1,  1, 0],
+  ]
+
+  return <Line points={points} color="white" lineWidth={1} segments />
+}
+```
+
+</CodeGroup>
+
+<Note>
+  The line resolution is kept in sync with the canvas size automatically. You
+  do not need to set `resolution` on the material manually.
+</Note>
+
+<Warning>
+  `Line` disposes of its geometry and material when unmounted. Do not share the
+  same `LineMaterial` instance across multiple `Line` components.
+</Warning>

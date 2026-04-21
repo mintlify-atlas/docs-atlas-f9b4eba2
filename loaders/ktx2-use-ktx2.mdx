@@ -1,0 +1,141 @@
+---
+title: Load GPU-compressed KTX2 textures with useKTX2 and Ktx2
+description: A suspense-based hook and component for loading GPU-compressed KTX2 textures in React Three Fiber using KTX2Loader and the Basis Universal transcoder.
+---
+
+`useKTX2` wraps R3F's `useLoader` with `KTX2Loader` from `three-stdlib`, providing GPU-compressed texture loading with Basis Universal transcoding. Like `useTexture`, the hook accepts a single URL, an array of URLs, or a key-to-URL record object and suspends until all textures are ready. After loading, textures are immediately uploaded to the GPU to avoid a one-frame stall on first render.
+
+<Note>
+  Components using `useKTX2` must be wrapped in a `<Suspense>` boundary. The hook suspends until all requested textures have been transcoded and uploaded.
+</Note>
+
+## `useKTX2` hook
+
+```ts
+useKTX2<Url extends string | string[] | Record<string, string>>(
+  input: Url,
+  basisPath?: string
+): Url extends any[] ? Texture[] : Url extends object ? { [key in keyof Url]: Texture } : Texture
+```
+
+<ParamField path="input" type="string | string[] | Record<string, string>" required>
+  A single KTX2 texture URL, an array of URLs, or an object mapping property names to URLs. The return type mirrors the input shape.
+</ParamField>
+
+<ParamField path="basisPath" type="string" default="https://cdn.jsdelivr.net/gh/pmndrs/drei-assets@master/basis/">
+  Path to the Basis Universal WASM transcoder files. Defaults to the pmndrs CDN-hosted assets. Pass a local path when you want to self-host the transcoder.
+</ParamField>
+
+### Single texture
+
+```jsx
+import { useKTX2 } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function Surface() {
+  const texture = useKTX2('/textures/diffuse.ktx2')
+  return (
+    <mesh>
+      <planeGeometry />
+      <meshStandardMaterial map={texture} />
+    </mesh>
+  )
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={null}>
+      <Surface />
+    </Suspense>
+  )
+}
+```
+
+### Array of textures
+
+```jsx
+function MultiTexture() {
+  const [albedo, normal] = useKTX2(['/albedo.ktx2', '/normal.ktx2'])
+  return (
+    <mesh>
+      <sphereGeometry />
+      <meshStandardMaterial map={albedo} normalMap={normal} />
+    </mesh>
+  )
+}
+```
+
+### Object map (PBR workflow)
+
+```jsx
+function PBRMesh() {
+  const props = useKTX2({
+    map: '/textures/color.ktx2',
+    normalMap: '/textures/normal.ktx2',
+    roughnessMap: '/textures/roughness.ktx2',
+  })
+  return (
+    <mesh>
+      <sphereGeometry />
+      <meshStandardMaterial {...props} />
+    </mesh>
+  )
+}
+```
+
+### Custom transcoder path
+
+```jsx
+const texture = useKTX2('/textures/diffuse.ktx2', '/basis/')
+```
+
+<Tip>
+  Self-hosting the Basis Universal transcoder is recommended for production to avoid a dependency on the CDN. Copy the `basis_transcoder.js` and `basis_transcoder.wasm` files from `three/examples/jsm/libs/basis/` into your public directory and pass that path as `basisPath`.
+</Tip>
+
+### Preloading
+
+```jsx
+useKTX2.preload('/textures/diffuse.ktx2')
+```
+
+### Clearing the cache
+
+```jsx
+useKTX2.clear('/textures/diffuse.ktx2')
+useKTX2.clear(['/textures/diffuse.ktx2', '/textures/normal.ktx2'])
+```
+
+## `Ktx2` component
+
+`Ktx2` exposes `useKTX2` through a render-prop children API.
+
+<ParamField path="input" type="string | string[] | Record<string, string>" required>
+  Mirrors the `input` parameter of `useKTX2`.
+</ParamField>
+
+<ParamField path="basisPath" type="string">
+  Mirrors the `basisPath` parameter of `useKTX2`.
+</ParamField>
+
+<ParamField path="children" type="(texture: ReturnType<typeof useKTX2>) => React.ReactNode">
+  Render prop receiving the loaded texture or texture collection.
+</ParamField>
+
+```jsx
+import { Ktx2 } from '@react-three/drei'
+import { Suspense } from 'react'
+
+export default function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <mesh>
+        <planeGeometry />
+        <Ktx2 input="/textures/diffuse.ktx2">
+          {(texture) => <meshStandardMaterial map={texture} />}
+        </Ktx2>
+      </mesh>
+    </Suspense>
+  )
+}
+```

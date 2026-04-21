@@ -1,0 +1,127 @@
+---
+title: "Bvh: accelerated raycasting via bounding volume hierarchy"
+description: "Wrap any scene graph with Bvh to replace Three.js's linear triangle test with a BVH spatial index, making raycasting up to orders of magnitude faster."
+---
+
+`Bvh` is an abstraction around [`three-mesh-bvh`](https://github.com/gkjohnson/three-mesh-bvh) that replaces Three.js's default O(n) triangle-by-triangle raycast with an accelerated Bounding Volume Hierarchy. You wrap your scene, a sub-graph, or a single mesh — and `Bvh` automatically traverses all descendant meshes, computes `boundsTree` on their geometries, and patches `raycast` with `acceleratedRaycast`. When the component unmounts or is disabled, it reverts every mesh to its original raycast method and disposes the BVH data, leaving no side effects.
+
+## Basic usage
+
+Wrap your scene inside `<Canvas>` to accelerate all raycasting globally:
+
+```jsx
+import { Bvh } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas>
+      <Bvh firstHitOnly>
+        <Scene />
+      </Bvh>
+    </Canvas>
+  )
+}
+```
+
+## Wrapping a single model
+
+You can also wrap only specific parts of the scene that need fast picking:
+
+```jsx
+import { useGLTF, Bvh } from '@react-three/drei'
+
+function PickableModel({ url }) {
+  const { scene } = useGLTF(url)
+  return (
+    <Bvh>
+      <primitive object={scene} />
+    </Bvh>
+  )
+}
+```
+
+## Split strategies
+
+The `strategy` prop controls how the BVH is built. There is a tradeoff between construction time and query performance:
+
+```jsx
+<Bvh strategy="SAH">        {/* slowest to build, fastest queries, least memory */}
+  <Scene />
+</Bvh>
+
+<Bvh strategy="CENTER">    {/* fast to build, moderate query speed */}
+  <Scene />
+</Bvh>
+
+<Bvh strategy="AVERAGE">   {/* balanced */}
+  <Scene />
+</Bvh>
+```
+
+## Props
+
+<ParamField path="enabled" type="boolean" default="true">
+  Toggle BVH computation on or off. When `false`, meshes keep their original
+  Three.js raycast method and no BVH data is computed.
+</ParamField>
+
+<ParamField path="firstHitOnly" type="boolean" default="false">
+  Sets `raycaster.firstHitOnly = true`, which uses `raycastFirst` internally
+  to return only the nearest intersection. This is significantly faster when
+  you only need to know whether something was hit, not all intersections.
+</ParamField>
+
+<ParamField path="strategy" type="string" default="SAH">
+  BVH split strategy. One of `"SAH"` (Surface Area Heuristic), `"CENTER"`,
+  or `"AVERAGE"`. SAH produces the best runtime performance at the cost of
+  slower construction.
+</ParamField>
+
+<ParamField path="verbose" type="boolean" default="false">
+  Print warnings to the console during BVH construction, such as degenerate
+  triangles or malformed geometries.
+</ParamField>
+
+<ParamField path="setBoundingBox" type="boolean" default="true">
+  Update `geometry.boundingBox` once the BVH is computed. Disable this if
+  you manage bounding boxes yourself.
+</ParamField>
+
+<ParamField path="maxDepth" type="number" default="40">
+  Maximum depth of the BVH tree. Deeper trees can improve query performance
+  for complex meshes but increase memory usage and construction time.
+</ParamField>
+
+<ParamField path="maxLeafTris" type="number" default="10">
+  Target number of triangles per leaf node. Smaller values produce more nodes
+  and faster queries; larger values reduce memory use.
+</ParamField>
+
+<ParamField path="indirect" type="boolean" default="false">
+  Experimental. When `true`, the BVH structure is stored in a separate buffer
+  rather than by rearranging the index buffer. Use this when the existing
+  index layout must be preserved, or when geometry is shared across materials.
+</ParamField>
+
+## Performance impact
+
+Standard Three.js raycasting tests every triangle in a mesh's geometry. A mesh with 100,000 triangles requires up to 100,000 tests per ray. With a BVH, the same mesh typically requires fewer than 30 tests. The improvement is even larger in complex scenes with many meshes, because `Bvh` builds the tree per geometry and `acceleratedRaycast` skips geometry-level tests that don't intersect the BVH's root bounding box.
+
+<Note>
+  `Bvh` only processes meshes that already use the standard
+  `Mesh.prototype.raycast`. Meshes with a custom `raycast` method are skipped
+  so you don't accidentally override specialized implementations.
+</Note>
+
+<Tip>
+  Use `firstHitOnly` whenever you only need one result — for example, click
+  picking or hover detection. It can cut raycast time by 50–80% compared to
+  collecting all intersections.
+</Tip>
+
+<Warning>
+  BVH construction happens synchronously on mount. For very large models with
+  millions of triangles, this can cause a frame stutter. Consider triggering
+  the `Bvh` render after a loading screen, or move BVH construction into a
+  Web Worker using the underlying `three-mesh-bvh` API.
+</Warning>

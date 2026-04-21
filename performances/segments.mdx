@@ -1,0 +1,131 @@
+---
+title: "Segments: batched line segments in a single draw call"
+description: "Render thousands of individually colored line segments under one LineSegmentsGeometry, avoiding the per-object overhead of separate THREE.Line instances."
+---
+
+`Segments` packs an arbitrary number of line segments into a single `Line2` object backed by a shared `LineSegmentsGeometry`. Every segment shares the same draw call, making this the right choice for debug visualizations, graph edges, force-directed layouts, or any scene where you need many short lines. Per-segment color is supported via vertex colors, and segment positions can be updated every frame through refs without triggering React re-renders.
+
+## Prop-based usage
+
+Declare segments as `<Segment>` children. `start`, `end`, and `color` are set once as props and updated when the component re-renders.
+
+```jsx
+import { Segments, Segment } from '@react-three/drei'
+
+function Graph() {
+  return (
+    <Segments limit={1000} lineWidth={1.5}>
+      <Segment start={[0, 0, 0]} end={[0, 5, 0]} color="red" />
+      <Segment start={[0, 0, 0]} end={[5, 5, 5]} color={[0, 1, 1]} />
+      <Segment start={[-2, 1, 0]} end={[2, 3, 0]} color="white" />
+    </Segments>
+  )
+}
+```
+
+## Ref-based usage for per-frame updates
+
+Use `ref` to update a segment's start, end, or color directly inside `useFrame` without going through React state. This avoids reconciler overhead when positions change every frame.
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Segments, Segment } from '@react-three/drei'
+
+function AnimatedSegment() {
+  const ref = useRef()
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime()
+    ref.current.start.set(0, 0, 0)
+    ref.current.end.set(Math.sin(t) * 3, Math.cos(t) * 3, 0)
+    ref.current.color.setRGB(Math.abs(Math.sin(t)), 0.2, 0.8)
+  })
+
+  return (
+    <Segments limit={100} lineWidth={2}>
+      <Segment ref={ref} />
+    </Segments>
+  )
+}
+```
+
+## Multiple animated segments
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Segments, Segment } from '@react-three/drei'
+
+const COUNT = 200
+
+function EdgeGraph() {
+  const refs = Array.from({ length: COUNT }, () => useRef())
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime()
+    refs.forEach((ref, i) => {
+      const angle = (i / COUNT) * Math.PI * 2 + t * 0.3
+      ref.current.start.set(Math.cos(angle) * 2, Math.sin(angle) * 2, 0)
+      ref.current.end.set(0, 0, 0)
+    })
+  })
+
+  return (
+    <Segments limit={COUNT} lineWidth={1}>
+      {refs.map((ref, i) => (
+        <Segment key={i} ref={ref} color="cyan" />
+      ))}
+    </Segments>
+  )
+}
+```
+
+## Props
+
+### Segments
+
+<ParamField path="limit" type="number" default="1000">
+  Maximum number of `<Segment>` children. Pre-allocates position and color
+  arrays of `limit * 6` floats each. Exceeding this limit silently clips
+  segments.
+</ParamField>
+
+<ParamField path="lineWidth" type="number" default="1.0">
+  Screen-space line width in pixels, passed to `LineMaterial`. Values above 1
+  require the `OES_standard_derivatives` WebGL extension, which is available
+  in all modern browsers.
+</ParamField>
+
+Additional props are spread onto the underlying `LineMaterial`, so any
+`LineMaterialParameters` (e.g. `dashed`, `dashSize`, `dashOffset`) can be
+passed directly to `<Segments>`.
+
+### Segment
+
+<ParamField path="start" type="Vector3" required>
+  Start point of the segment. Accepts a `THREE.Vector3`, a `[x, y, z]`
+  tuple, or a single number (uniform XYZ).
+</ParamField>
+
+<ParamField path="end" type="Vector3" required>
+  End point of the segment. Accepts the same formats as `start`.
+</ParamField>
+
+<ParamField path="color" type="Color">
+  Color of the segment. Both endpoints share the same color; vertex colors
+  are replicated for start and end. Accepts any value `THREE.Color` accepts.
+</ParamField>
+
+<Note>
+  `Segments` uses `Line2` from `three-stdlib`, which renders lines as screen-
+  space geometry rather than native WebGL lines. This enables consistent pixel
+  widths across devices and zoom levels, but adds a small vertex-shader cost
+  per segment.
+</Note>
+
+<Tip>
+  Pre-allocate `limit` to at least the maximum number of segments your scene
+  will ever show. Changing `limit` after mount destroys and recreates the
+  underlying geometry buffers.
+</Tip>

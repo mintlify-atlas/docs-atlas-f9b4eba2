@@ -1,0 +1,116 @@
+---
+title: "Outlines: Inverted-hull outlines on mesh objects"
+description: "Adds inverted-hull outlines to mesh, skinnedMesh, and instancedMesh parents in React Three Fiber, with screenspace mode, crease angle, and clipping planes."
+---
+
+`<Outlines>` is a child component that extracts geometry from its parent mesh and renders an inverted-hull outline around it. It supports `<mesh>`, `<skinnedMesh>`, and `<instancedMesh>` parents, handles morph targets and skinning, and provides both world-space and screenspace thickness modes. Because the outlines are drawn on a separate inner mesh, they do not require any changes to the parent material.
+
+<Note>
+  `<Outlines>` must be placed as a direct child of a `<mesh>`, `<skinnedMesh>`, or `<instancedMesh>`. It reads the parent's geometry each render and will have no effect if the parent has no geometry.
+</Note>
+
+## Props
+
+<ParamField path="color" type="ReactThreeFiber.Color" default="'black'">
+  Colour of the outline.
+</ParamField>
+
+<ParamField path="thickness" type="number" default="0.05">
+  Thickness of the outline. In world-space mode this is a world-unit distance; in screenspace mode it is a pixel-scale factor.
+</ParamField>
+
+<ParamField path="screenspace" type="boolean" default="false">
+  When `true`, thickness is independent of camera distance. The outline stays a consistent visual weight regardless of zoom level.
+</ParamField>
+
+<ParamField path="opacity" type="number" default="1">
+  Opacity of the outline.
+</ParamField>
+
+<ParamField path="transparent" type="boolean" default="false">
+  Enables transparency on the outline material. Required when `opacity` is below `1`.
+</ParamField>
+
+<ParamField path="angle" type="number" default="Math.PI">
+  Crease angle in radians used when computing smoothed normals for the outline geometry via `toCreasedNormals`. Set to `0` to use the parent geometry's original normals without modification.
+</ParamField>
+
+<ParamField path="toneMapped" type="boolean" default="true">
+  Applies tone mapping to the outline colour.
+</ParamField>
+
+<ParamField path="polygonOffset" type="boolean" default="false">
+  Enables polygon offset on the outline material.
+</ParamField>
+
+<ParamField path="polygonOffsetFactor" type="number" default="0">
+  Polygon offset factor. Only takes effect when `polygonOffset` is `true`.
+</ParamField>
+
+<ParamField path="renderOrder" type="number" default="0">
+  Render order of the outline mesh.
+</ParamField>
+
+<ParamField path="clippingPlanes" type="THREE.Plane[]">
+  Clipping planes applied to the outline material. Works the same as material clipping planes.
+</ParamField>
+
+## Usage
+
+### Basic outline on a box
+
+```jsx
+import { Outlines } from '@react-three/drei'
+
+function OutlinedBox() {
+  return (
+    <mesh>
+      <boxGeometry />
+      <meshStandardMaterial color="white" />
+      <Outlines thickness={0.05} color="black" />
+    </mesh>
+  )
+}
+```
+
+### Coloured outline with screenspace thickness
+
+```jsx
+<mesh>
+  <sphereGeometry args={[1, 32, 32]} />
+  <meshStandardMaterial color="royalblue" />
+  <Outlines thickness={3} color="hotpink" screenspace />
+</mesh>
+```
+
+### Semi-transparent outline
+
+```jsx
+<mesh>
+  <torusKnotGeometry />
+  <meshStandardMaterial color="white" />
+  <Outlines thickness={0.08} color="black" transparent opacity={0.5} />
+</mesh>
+```
+
+### Outline on a skinned mesh
+
+`<Outlines>` tracks skinning and morph target influences automatically.
+
+```jsx
+<skinnedMesh geometry={geometry} skeleton={skeleton} material={material}>
+  <Outlines thickness={0.04} color="black" />
+</skinnedMesh>
+```
+
+### Outline on an instanced mesh
+
+```jsx
+<instancedMesh args={[geometry, material, 100]}>
+  <Outlines thickness={0.03} color="white" />
+</instancedMesh>
+```
+
+<Tip>
+  Use `screenspace` mode for UI-style cel-shading where outline weight should not change with camera distance, and world-space mode for architectural or artistic visualisations where outlines should scale with the geometry.
+</Tip>

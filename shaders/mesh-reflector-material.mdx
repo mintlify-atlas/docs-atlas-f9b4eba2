@@ -1,0 +1,134 @@
+---
+title: "MeshReflectorMaterial: Reflective floor and ground"
+description: "Add real-time reflections and depth-aware blur to any flat mesh. Extends MeshStandardMaterial with a render-target-based reflector shader."
+---
+
+`MeshReflectorMaterial` renders a live reflection of the scene onto a mesh by projecting from a virtual mirror camera into an off-screen render target each frame. It extends `THREE.MeshStandardMaterial`, so it accepts all standard PBR props alongside its own reflection controls. The blur pass is depth-aware: objects closer to the surface appear sharper while distant ones blend into a softened reflection, giving floor and ground planes a convincing wet-surface look.
+
+## Props
+
+<ParamField path="resolution" type="number" default="256">
+  Size in pixels of the square off-screen render target. Lower values render faster; higher values produce sharper reflections.
+</ParamField>
+
+<ParamField path="blur" type="[number, number] | number" default="[0, 0]">
+  Horizontal and vertical blur radius applied to the reflection texture. Pass a single number to blur both axes equally. Setting both to `0` disables the blur pass entirely.
+</ParamField>
+
+<ParamField path="mixBlur" type="number" default="0">
+  How much the blur texture mixes with the surface roughness value. At `0` the blur is ignored; at `1` rough surfaces show maximum blur.
+</ParamField>
+
+<ParamField path="mixStrength" type="number" default="1">
+  Overall opacity of the reflection overlay on the diffuse color.
+</ParamField>
+
+<ParamField path="mixContrast" type="number" default="1">
+  Contrast adjustment applied to the reflected color before compositing.
+</ParamField>
+
+<ParamField path="mirror" type="number" default="0">
+  Controls how much the environment map contributes versus the render-target texture. `0` uses only the captured scene texture; `1` blends fully with environment colors.
+</ParamField>
+
+<ParamField path="minDepthThreshold" type="number" default="0.9">
+  Lower edge of the depth range used to modulate blur intensity. Pixels with depth below this value are treated as close to the surface.
+</ParamField>
+
+<ParamField path="maxDepthThreshold" type="number" default="1">
+  Upper edge of the depth range for blur modulation. Pixels above this depth value receive maximum blur.
+</ParamField>
+
+<ParamField path="depthScale" type="number" default="0">
+  Scales the influence of the depth texture on the reflection. `0` disables depth-based effects; positive values make distant reflections fade out.
+</ParamField>
+
+<ParamField path="depthToBlurRatioBias" type="number" default="0.25">
+  Additive bias applied to the depth value before multiplying with the blur texture. Prevents the reflection from becoming completely sharp at zero depth. Accepts values between `0` and `1`.
+</ParamField>
+
+<ParamField path="distortion" type="number" default="1">
+  Strength of the UV distortion driven by `distortionMap`. Higher values produce more wavy, rippled reflections.
+</ParamField>
+
+<ParamField path="distortionMap" type="THREE.Texture" default="null">
+  A texture whose red channel is sampled as a distortion offset for the reflection UVs. Useful for simulating water or rough surfaces.
+</ParamField>
+
+<ParamField path="reflectorOffset" type="number" default="0">
+  Offsets the virtual reflection camera along the surface normal. Use this when the mesh origin is not flush with the physical reflective surface.
+</ParamField>
+
+## Usage
+
+### Basic reflective floor
+
+```jsx
+import { MeshReflectorMaterial } from '@react-three/drei'
+
+function Floor() {
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[10, 10]} />
+      <MeshReflectorMaterial
+        resolution={512}
+        mixStrength={0.8}
+        roughness={0.4}
+        color="#202020"
+      />
+    </mesh>
+  )
+}
+```
+
+### Blurred wet-ground reflection
+
+```jsx
+<mesh rotation={[-Math.PI / 2, 0, 0]}>
+  <planeGeometry args={[20, 20]} />
+  <MeshReflectorMaterial
+    resolution={512}
+    blur={[400, 100]}
+    mixBlur={1}
+    mixStrength={1.5}
+    depthScale={1}
+    minDepthThreshold={0.85}
+    maxDepthThreshold={1}
+    depthToBlurRatioBias={0.2}
+    color="#151515"
+    metalness={0.5}
+    roughness={1}
+  />
+</mesh>
+```
+
+### Distorted water surface
+
+```jsx
+import { useTexture } from '@react-three/drei'
+
+function WaterPlane() {
+  const distortionMap = useTexture('/textures/water-normal.jpg')
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[10, 10]} />
+      <MeshReflectorMaterial
+        resolution={256}
+        distortion={2}
+        distortionMap={distortionMap}
+        mixStrength={1}
+        blur={[200, 200]}
+        mixBlur={0.8}
+      />
+    </mesh>
+  )
+}
+```
+
+<Note>
+  `MeshReflectorMaterial` causes one extra scene render per frame. Keep `resolution` low (128–256) when performance is a concern. The blur pass adds a second render only when `blur[0] + blur[1] > 0`.
+</Note>
+
+<Tip>
+  Set `reflectorOffset` to a small positive value (e.g. `0.2`) when the mesh sits slightly inside another object, to prevent the virtual camera from clipping through geometry.
+</Tip>

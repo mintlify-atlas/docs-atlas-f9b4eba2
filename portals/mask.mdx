@@ -1,0 +1,118 @@
+---
+title: "Mask: stencil-buffer masking for react-three-fiber scenes"
+description: "Clip 3D objects to arbitrary shapes using the GPU stencil buffer with Mask and useMask. Cheaper than double renders or createPortal for masking effects."
+---
+
+`Mask` writes to the WebGL stencil buffer using the geometry of a mesh, and `useMask` returns the corresponding stencil state that you spread onto any material to clip it to the masked region. Because masking happens entirely in the stencil buffer, it does not require additional render passes or `createPortal` — making it cheaper than most other masking techniques. Multiple masks can share the same `id` to create compound shapes, and any mask can be inverted.
+
+## Components and hooks
+
+### `<Mask>`
+
+Renders a mesh that writes to the stencil buffer. The mesh itself is invisible by default (no color or depth output). Its geometry defines the clipping shape.
+
+<ParamField path="id" type="number" required>
+  Stencil buffer reference value. Every `Mask` and `useMask` call sharing the same `id` operates on the same stencil region.
+</ParamField>
+
+<ParamField path="colorWrite" type="boolean" default="false">
+  When `true`, the mask mesh's material color is written to the color buffer, making the mask geometry visible as a normal mesh.
+</ParamField>
+
+<ParamField path="depthWrite" type="boolean" default="false">
+  When `true`, the mask mesh writes to the depth buffer, allowing it to participate in depth testing with other geometry.
+</ParamField>
+
+The component also accepts all standard `THREE.Mesh` props (position, rotation, scale, children, etc.).
+
+### `useMask(id, inverse?)`
+
+Returns a set of Three.js material properties that restrict rendering to the stencil region defined by `Mask` with the matching `id`.
+
+| Parameter | Type      | Default | Description                                              |
+| --------- | --------- | ------- | -------------------------------------------------------- |
+| `id`      | `number`  | —       | The stencil id to test against.                          |
+| `inverse` | `boolean` | `false` | When `true`, renders everywhere **except** the mask area.|
+
+## Basic usage
+
+<Steps>
+  <Step title="Define the mask shape">
+    Place a `Mask` in your scene with an `id` and give it geometry. The geometry defines where masked content will be visible.
+
+    ```jsx
+    import { Mask } from '@react-three/drei'
+
+    <Mask id={1}>
+      <planeGeometry args={[2, 2]} />
+      <meshBasicMaterial />
+    </Mask>
+    ```
+  </Step>
+  <Step title="Apply the mask to content">
+    Spread the result of `useMask` onto the material of any mesh you want clipped.
+
+    ```jsx
+    import { useMask } from '@react-three/drei'
+
+    function MaskedContent() {
+      const stencil = useMask(1)
+      return (
+        <mesh>
+          <torusKnotGeometry args={[0.6, 0.2, 128, 16]} />
+          <meshStandardMaterial color="royalblue" {...stencil} />
+        </mesh>
+      )
+    }
+    ```
+  </Step>
+</Steps>
+
+## Compound masks
+
+Multiple `Mask` meshes sharing the same `id` are unioned together. Content masked by that `id` is visible in any of the shapes:
+
+```jsx
+{/* Two shapes that together form the mask for id={1} */}
+<Mask id={1} position={[-1.5, 0, 0]}>
+  <planeGeometry args={[1.5, 1.5]} />
+  <meshBasicMaterial />
+</Mask>
+
+<Mask id={1} position={[1.5, 0, 0]}>
+  <circleGeometry args={[0.75, 64]} />
+  <meshBasicMaterial />
+</Mask>
+```
+
+## Visible mask geometry
+
+Provide `colorWrite` and `depthWrite` to render the mask as a normal visible mesh while still writing to the stencil buffer:
+
+```jsx
+<Mask colorWrite depthWrite id={1}>
+  <circleGeometry args={[1, 64]} />
+  <meshBasicMaterial color="white" />
+</Mask>
+```
+
+## Inverted mask
+
+Pass `true` as the second argument to `useMask` to render content everywhere **except** inside the mask:
+
+```jsx
+const stencil = useMask(1, true)
+
+<mesh>
+  <boxGeometry />
+  <meshStandardMaterial color="hotpink" {...stencil} />
+</mesh>
+```
+
+<Tip>
+  `useMask` simply returns a plain object of Three.js material properties. You can merge it with any other material props using the spread operator, making it compatible with any material type.
+</Tip>
+
+<Note>
+  `Mask` sets `renderOrder` to `-id` internally, so it renders before the content it masks. If you have multiple mask ids, their render order is derived from the sign and magnitude of the id — lower ids render first.
+</Note>

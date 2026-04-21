@@ -1,0 +1,115 @@
+---
+title: "AdaptiveEvents, Preload, BakeShadows, and meshBounds"
+description: "Performance helpers: pause pointer events under load, pre-warm the GPU, freeze shadow maps, and replace mesh raycasting with bounding sphere tests."
+---
+
+These are lightweight performance utilities that complement the main drei performance components.
+
+## AdaptiveEvents
+
+`AdaptiveEvents` disables the Three.js event system (pointer hit-testing) when `performance.current` drops below `1`. This reduces CPU load during periods of heavy rendering by pausing raycasting.
+
+```jsx
+import { AdaptiveEvents, PerformanceMonitor } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <PerformanceMonitor />
+      <AdaptiveEvents />
+      {/* All pointer events are paused when FPS drops */}
+    </>
+  )
+}
+```
+
+<Note>
+  `AdaptiveEvents` works alongside `PerformanceMonitor` or any component that writes to `state.performance.current`.
+</Note>
+
+---
+
+## Preload
+
+`Preload` forces Three.js to compile all scene materials and geometries up front by rendering a single invisible frame. This eliminates shader compilation hitches on the first real render.
+
+```jsx
+import { Preload } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas>
+      <Scene />
+      <Preload all />
+    </Canvas>
+  )
+}
+```
+
+### Props
+
+<ParamField path="all" type="boolean">
+  Temporarily make all invisible objects visible during pre-compilation. Default: `false`.
+</ParamField>
+
+<ParamField path="scene" type="Object3D">
+  Target scene to compile. Defaults to `state.scene`.
+</ParamField>
+
+<ParamField path="camera" type="Camera">
+  Camera to use for compilation. Defaults to `state.camera`.
+</ParamField>
+
+---
+
+## BakeShadows
+
+`BakeShadows` freezes shadow maps after the first render by setting `renderer.shadowMap.autoUpdate = false`. This is ideal for static scenes where shadow-casting lights never move.
+
+```jsx
+import { BakeShadows } from '@react-three/drei'
+
+function StaticScene() {
+  return (
+    <>
+      <directionalLight position={[5, 5, 5]} castShadow />
+      <mesh castShadow receiveShadow>
+        <boxGeometry />
+        <meshStandardMaterial />
+      </mesh>
+      {/* Freeze shadow maps after first render */}
+      <BakeShadows />
+    </>
+  )
+}
+```
+
+<Tip>
+  Remove `BakeShadows` if any light or shadow-casting object can move at runtime, otherwise shadows will become stale.
+</Tip>
+
+---
+
+## meshBounds
+
+`meshBounds` is a custom `raycast` function that replaces a mesh's default triangle-level raycasting with a fast bounding sphere test. Assign it to a mesh's `raycast` prop when you need coarse pointer event detection without the cost of geometry intersection.
+
+```jsx
+import { meshBounds } from '@react-three/drei'
+
+function FastClickMesh() {
+  return (
+    <mesh
+      raycast={meshBounds}
+      onClick={() => console.log('clicked')}
+    >
+      <torusKnotGeometry args={[1, 0.3, 128, 32]} />
+      <meshStandardMaterial />
+    </mesh>
+  )
+}
+```
+
+<Warning>
+  `meshBounds` uses only the bounding sphere — click accuracy is approximate. Useful for large meshes or UI hitboxes where exact geometry testing isn't required.
+</Warning>

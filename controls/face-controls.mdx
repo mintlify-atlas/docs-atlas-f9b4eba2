@@ -1,0 +1,173 @@
+---
+title: "FaceControls: Webcam face-tracking camera controller"
+description: "Drives the camera to follow a detected face via MediaPipe FaceLandmarker, with smooth damping, eye-tracking, offset sensitivity, and a debug overlay."
+---
+
+`FaceControls` uses MediaPipe's `FaceLandmarker` to detect the user's face via webcam and moves the camera to match their head position and orientation in real time. The result is an immersive perspective shift where looking left, right, or towards the screen changes what the viewer sees in the 3D scene. It supports smooth damping, optional eye-tracking for gaze direction, and a debug overlay that renders the underlying `Facemesh`.
+
+## Prerequisites
+
+`FaceControls` must be placed inside a `FaceLandmarker` provider, which loads the MediaPipe model and makes the detection context available:
+
+```tsx
+import { FaceLandmarker, FaceControls } from '@react-three/drei'
+
+export default function App() {
+  return (
+    <Canvas>
+      <FaceLandmarker>
+        <FaceControls />
+        {/* rest of scene */}
+      </FaceLandmarker>
+    </Canvas>
+  )
+}
+```
+
+## Props
+
+<ParamField path="camera" type="THREE.Camera">
+  The camera to control. Defaults to the camera in R3F state.
+</ParamField>
+
+<ParamField path="videoTexture" type="VideoTextureProps" default="{ start: true }">
+  Options forwarded to either `<VideoTexture>` or `<WebcamVideoTexture>`. Pass a `src` property to use a video file instead of the webcam.
+</ParamField>
+
+<ParamField path="manualDetect" type="boolean" default="false">
+  When `true`, automatic face detection is disabled. You are responsible for providing `faceLandmarkerResult` yourself, for example from a custom detection loop.
+</ParamField>
+
+<ParamField path="faceLandmarkerResult" type="FaceLandmarkerResult">
+  An externally-computed `FaceLandmarkerResult` from MediaPipe. Only used when `manualDetect` is `true`.
+</ParamField>
+
+<ParamField path="manualUpdate" type="boolean" default="false">
+  When `true`, the automatic per-frame camera update is disabled. Call the `update` method on the ref yourself.
+</ParamField>
+
+<ParamField path="makeDefault" type="boolean">
+  When `true`, registers this instance as `controls` in R3F state.
+</ParamField>
+
+<ParamField path="smoothTime" type="number" default="0.25">
+  Approximate time in seconds for the camera to reach the target position. A smaller value makes it follow more closely; `0` disables damping entirely.
+</ParamField>
+
+<ParamField path="offset" type="boolean" default="true">
+  When `true`, applies a positional offset derived from the `facialTransformationMatrix`, making the camera appear to move in 3D space rather than just rotate.
+</ParamField>
+
+<ParamField path="offsetScalar" type="number" default="80">
+  Sensitivity factor for the position offset. Lower values are more sensitive; higher values are more subtle.
+</ParamField>
+
+<ParamField path="eyes" type="boolean" default="false">
+  When `true`, enables eye-tracking. The camera target is computed from the iris landmarks of both eyes rather than the head mesh origin.
+</ParamField>
+
+<ParamField path="eyesAsOrigin" type="boolean" default="true">
+  When `eyes` is `true`, forces the `Facemesh` origin to the midpoint between the two eyes.
+</ParamField>
+
+<ParamField path="depth" type="number" default="0.15">
+  The constant depth used for the `Facemesh` geometry.
+</ParamField>
+
+<ParamField path="debug" type="boolean" default="false">
+  When `true`, renders the `Facemesh` with a normal material, useful for checking landmark alignment.
+</ParamField>
+
+<ParamField path="facemesh" type="FacemeshProps">
+  Additional props forwarded to the internal `<Facemesh>` component.
+</ParamField>
+
+## Ref API
+
+`FaceControls` forwards a ref typed as `FaceControlsApi`:
+
+| Method / Field | Description |
+|---|---|
+| `computeTarget()` | Computes and returns the target `THREE.Object3D` that the camera should follow based on the latest detection result. |
+| `update(delta, target?)` | Moves the camera toward the target. Called automatically each frame unless `manualUpdate` is `true`. |
+| `facemeshApiRef` | A ref to the internal `FacemeshApi`, providing access to the face mesh geometry. |
+
+## Basic usage
+
+```tsx
+import { FaceLandmarker, FaceControls } from '@react-three/drei'
+
+export default function Scene() {
+  return (
+    <FaceLandmarker>
+      <FaceControls smoothTime={0.3} offset offsetScalar={60} />
+      <mesh position={[0, 0, -2]}>
+        <boxGeometry />
+        <meshStandardMaterial color="royalblue" />
+      </mesh>
+    </FaceLandmarker>
+  )
+}
+```
+
+## Eye-tracking mode
+
+Enable `eyes` to drive the camera from iris position, producing a gaze-following effect:
+
+```tsx
+<FaceLandmarker>
+  <FaceControls
+    eyes
+    eyesAsOrigin
+    smoothTime={0.15}
+    offset
+    offsetScalar={40}
+  />
+</FaceLandmarker>
+```
+
+## Manual detection
+
+Disable automatic detection and supply results yourself to integrate with a custom MediaPipe pipeline or share a single detection loop across multiple components:
+
+```tsx
+import { useRef, useState, useEffect } from 'react'
+import { FaceLandmarker, FaceControls } from '@react-three/drei'
+import type { FaceLandmarkerResult } from '@mediapipe/tasks-vision'
+
+function ManualScene() {
+  const [result, setResult] = useState<FaceLandmarkerResult>()
+
+  // Your own detection loop populates `result`
+
+  return (
+    <FaceLandmarker>
+      <FaceControls manualDetect faceLandmarkerResult={result} smoothTime={0.2} />
+    </FaceLandmarker>
+  )
+}
+```
+
+## Debug overlay
+
+Set `debug` to `true` to render the face mesh with a normal material, making it easier to verify that landmark detection is tracking the correct regions:
+
+```tsx
+<FaceControls debug smoothTime={0} />
+```
+
+<Warning>
+  `FaceControls` requests webcam access from the browser. Users will see a permission prompt on first use. The feature is unavailable on pages served over plain HTTP in most browsers — use HTTPS or `localhost`.
+</Warning>
+
+## Breaking changes
+
+### v9.120.0
+
+Several props and ref API methods were removed as part of a simplification of the component:
+
+- `autostart` — replaced by `videoTexture.start`
+- `webcam` — use `manualDetect` instead
+- `webcamVideoTextureSrc` — use `videoTexture.src`
+- `onVideoFrame` — use `videoTexture.onVideoFrame`
+- `detect`, `webcamApiRef`, `play`, `pause` — removed from the ref API; instantiate your own `<VideoTexture>` or `<WebcamVideoTexture>` outside the component if you need these.

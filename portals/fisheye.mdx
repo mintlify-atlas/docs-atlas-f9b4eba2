@@ -1,0 +1,90 @@
+---
+title: "Fisheye: full-screen fisheye lens projection in drei"
+description: "Project a 3D scene through a fisheye lens with Fisheye. Uses a cubemap and orthographic sphere to produce a 360-degree barrel distortion effect."
+---
+
+`Fisheye` takes over the render loop and projects your scene through a fisheye lens onto the full screen. Internally it portals its children into a cubemap using `RenderCubeTexture`, then projects that cubemap onto a sphere rendered with an orthographic camera. The sphere's environment map is the cubemap, so the fisheye distortion emerges from the spherical projection. The cube camera is kept in sync with the portal's default camera on every frame.
+
+## Props
+
+<ParamField path="children" type="React.ReactNode" required>
+  The 3D scene to project through the fisheye. Runs inside an isolated `RenderCubeTexture` portal.
+</ParamField>
+
+<ParamField path="zoom" type="number" default="0">
+  Zoom factor in the range `0..1`. Increasing `zoom` enlarges the visible sphere, cropping the outer edges of the fisheye circle.
+</ParamField>
+
+<ParamField path="segments" type="number" default="64">
+  Number of sphere geometry segments. Reduce this for a faceted, low-poly fisheye look. Higher values produce a smoother round lens.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="896">
+  Resolution of each cubemap face in pixels. Six faces are rendered per frame. Lower values increase performance at the cost of sharpness.
+</ParamField>
+
+<ParamField path="renderPriority" type="number" default="1">
+  Priority passed to `useFrame` to take over the render loop. Must be `>= 1` for `Fisheye` to replace normal rendering with its orthographic sphere output.
+</ParamField>
+
+The component also accepts all standard `THREE.Mesh` props, which are forwarded to the inner sphere mesh.
+
+## Basic usage
+
+Wrap your scene content in `Fisheye` inside a `Canvas`. `Fisheye` takes over rendering completely, so any controls or cameras you add should go outside or alongside it:
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { Fisheye, OrbitControls, Stars } from '@react-three/drei'
+
+export default function App() {
+  return (
+    <Canvas camera={{ position: [0, 0, 5] }}>
+      <Fisheye>
+        <color attach="background" args={['#050510']} />
+        <Stars radius={10} />
+        <ambientLight intensity={0.3} />
+        <directionalLight position={[5, 5, 5]} />
+        <mesh>
+          <torusKnotGeometry args={[0.8, 0.3, 128, 16]} />
+          <meshNormalMaterial />
+        </mesh>
+      </Fisheye>
+      <OrbitControls />
+    </Canvas>
+  )
+}
+```
+
+## Adjusting zoom
+
+Use `zoom` to pull back from the full fisheye circle and reveal more of the surrounding scene:
+
+```jsx
+<Fisheye zoom={0.5}>
+  <YourScene />
+</Fisheye>
+```
+
+## Performance tuning
+
+Lower `resolution` and `segments` for better frame rates, especially on mobile:
+
+```jsx
+{/* Half resolution cubemap, coarser sphere — significantly faster */}
+<Fisheye resolution={512} segments={32}>
+  <YourScene />
+</Fisheye>
+```
+
+<Note>
+  `Fisheye` performs six renders per frame to build the cubemap (one for each face), plus one orthographic render of the sphere. Scenes with many draw calls will be multiplied accordingly — keep the inner scene lean, or lower `resolution` to compensate.
+</Note>
+
+<Tip>
+  Because `Fisheye` uses an orthographic camera for the final output render, the lens circle always fills the viewport regardless of aspect ratio or window size. The sphere radius is automatically calculated from the viewport diagonal so the circle is always fully inscribed.
+</Tip>
+
+## How it works
+
+`Fisheye` creates an `OrthographicCamera` looking at a sphere from above (positioned at `z = 100`, `zoom = 100`). The sphere's `meshBasicMaterial` uses a `RenderCubeTexture` as its `envMap`. An internal `UpdateCubeCamera` component syncs the cube camera's position and rotation to the portal's default camera each frame, so the cubemap always represents the view from the current observer's location. When `renderPriority` is active, `useFrame` replaces the normal canvas render with `gl.render(sphere, orthoCamera)`.

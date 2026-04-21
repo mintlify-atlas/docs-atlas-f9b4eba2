@@ -1,0 +1,165 @@
+---
+title: 'Facemesh: render MediaPipe face landmark meshes in 3D'
+description: 'Renders an oriented 3D face mesh from MediaPipe FaceLandmarker keypoints, with eye tracking, blendshape support, and a ref-based imperative API.'
+---
+
+`Facemesh` takes an array of 468+ keypoints from the [MediaPipe FaceLandmarker](https://developers.google.com/mediapipe/solutions/vision/face_landmarker/web_js) API and renders them as an indexed triangulated mesh with correct orientation. The component computes face orientation either from a `facialTransformationMatrix` (when available) or from a user-specified vertical landmark triangle. Optional eye rendering uses blendshape scores to animate iris direction. A ref API exposes direct access to the internal mesh, group, and eye refs.
+
+## Props
+
+<ParamField path="points" type="MediaPipePoints">
+  Array of 468+ `{x, y, z}` keypoints as returned by `FaceLandmarkerResult.faceLandmarks[i]`. Defaults to a bundled sample face so the component renders without any input.
+</ParamField>
+
+<ParamField path="face" type="MediaPipeFaceMesh" deprecated>
+  Deprecated. A face object as returned by the older `@tensorflow-models/face-landmarks-detection` API. Use `points` instead.
+</ParamField>
+
+<ParamField path="width" type="number">
+  Fit the mesh to this constant width. Overrides `depth` scaling when set.
+</ParamField>
+
+<ParamField path="height" type="number">
+  Fit the mesh to this constant height. Overrides `depth` scaling when set.
+</ParamField>
+
+<ParamField path="depth" type="number" default="1">
+  Fit the mesh to this constant depth along the z-axis.
+</ParamField>
+
+<ParamField path="verticalTri" type="[number, number, number]" default="[159, 386, 152]">
+  Three landmark indices forming a triangle that is approximately vertical on an upright face. Used to compute the face's sight direction normal when `facialTransformationMatrix` is not provided.
+</ParamField>
+
+<ParamField path="origin" type="number | THREE.Vector3">
+  A landmark index or `Vector3` to use as the origin of the mesh group. Defaults to the bounding box center when omitted.
+</ParamField>
+
+<ParamField path="facialTransformationMatrix" type="FacialTransformationMatrix">
+  Transformation matrix from `FaceLandmarkerResult.facialTransformationMatrixes[i]`. When provided, it is used to compute rotation and (if `offset` is enabled) translation instead of deriving them from `verticalTri`.
+</ParamField>
+
+<ParamField path="offset" type="boolean">
+  Apply position offset extracted from `facialTransformationMatrix`. Requires `facialTransformationMatrix` to be provided.
+</ParamField>
+
+<ParamField path="offsetScalar" type="number" default="80">
+  Divides the raw translation from `facialTransformationMatrix` before applying it. Lower values make the mesh more sensitive to head movement.
+</ParamField>
+
+<ParamField path="faceBlendshapes" type="FaceBlendshapes">
+  Blendshape categories from `FaceLandmarkerResult.faceBlendshapes[i]`. Required for eye rendering (`eyes` prop).
+</ParamField>
+
+<ParamField path="eyes" type="boolean" default="true">
+  Render animated eye meshes. Requires `faceBlendshapes` to function; logs a warning and skips eye rendering when blendshapes are absent.
+</ParamField>
+
+<ParamField path="eyesAsOrigin" type="boolean" default="false">
+  Force the midpoint between the two eyes to be the mesh origin. Requires `eyes` to be enabled.
+</ParamField>
+
+<ParamField path="debug" type="boolean" default="false">
+  Render axes helpers, a sight-direction line, and a bounding-box wireframe on the internal geometry for debugging alignment.
+</ParamField>
+
+All additional props are spread onto the root `THREE.Group` element.
+
+## Ref API
+
+Attach a ref typed as `FacemeshApi` to access internal Three.js objects:
+
+```ts
+type FacemeshApi = {
+  meshRef: React.RefObject<THREE.Mesh>       // The face mesh
+  outerRef: React.RefObject<THREE.Group>     // Rotated to match face orientation
+  eyeRightRef: React.RefObject<FacemeshEyeApi>
+  eyeLeftRef: React.RefObject<FacemeshEyeApi>
+}
+```
+
+## Usage
+
+<CodeGroup>
+
+```jsx Basic face render
+import { Facemesh } from '@react-three/drei'
+
+// Renders the bundled sample face with default settings
+function SampleFace() {
+  return (
+    <Facemesh>
+      <meshStandardMaterial color="peachpuff" side={2} />
+    </Facemesh>
+  )
+}
+```
+
+```jsx Live FaceLandmarker integration
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Facemesh } from '@react-three/drei'
+
+function LiveFace({ faceLandmarkerResult }) {
+  const points = faceLandmarkerResult?.faceLandmarks?.[0]
+  const matrix = faceLandmarkerResult?.facialTransformationMatrixes?.[0]
+  const blendshapes = faceLandmarkerResult?.faceBlendshapes?.[0]
+
+  return (
+    <Facemesh
+      points={points}
+      facialTransformationMatrix={matrix}
+      faceBlendshapes={blendshapes}
+      eyes
+      offset
+      offsetScalar={80}
+      depth={1}
+    >
+      <meshStandardMaterial color="peachpuff" side={2} />
+    </Facemesh>
+  )
+}
+```
+
+```jsx Ref API — world-space gaze direction
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Facemesh } from '@react-three/drei'
+import * as THREE from 'three'
+
+function GazeTracker({ points }) {
+  const api = useRef()
+
+  useFrame(() => {
+    if (!api.current) return
+
+    // World-space direction the face is looking
+    const gazeDir = api.current.meshRef.current
+      .localToWorld(new THREE.Vector3(0, 0, -1))
+
+    // Right iris direction
+    const rightIrisDir = api.current.eyeRightRef.current.irisDirRef.current
+      .localToWorld(new THREE.Vector3(0, 0, -1))
+  })
+
+  return (
+    <Facemesh ref={api} points={points}>
+      <meshStandardMaterial color="peachpuff" side={2} />
+    </Facemesh>
+  )
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  Eye rendering requires `faceBlendshapes` from `FaceLandmarkerResult`. When
+  `eyes={true}` but no blendshapes are provided, a console warning is logged
+  and eyes are skipped silently.
+</Warning>
+
+<Note>
+  The `face` prop (accepting a tensorflow/tfjs-models result object) is
+  deprecated. Migrate to `points` with an array of `{x, y, z}` keypoints from
+  the MediaPipe Tasks Vision API.
+</Note>

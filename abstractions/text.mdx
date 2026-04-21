@@ -1,0 +1,202 @@
+---
+title: "Text: SDF-based antialiased text with troika-three-text"
+description: "Renders crisp signed-distance-field text at any size in React Three Fiber via troika-three-text, with outlines, stroke, multi-line layout, and Suspense support."
+---
+
+`<Text>` renders high-quality text in a Three.js scene using [troika-three-text](https://github.com/protectwise/troika/tree/master/packages/troika-three-text) under the hood. It generates signed distance fields (SDF) for each glyph, which means text stays crisp at any zoom level without a separate texture per font size. The component is Suspense-based: it suspends while the font data loads and resumes once ready.
+
+<Note>
+  `<Text>` suspends while loading font data. Wrap it in a `<Suspense>` boundary to handle the loading state.
+</Note>
+
+## Props
+
+<ParamField path="children" type="React.ReactNode" required>
+  The string content to render. String and number children are concatenated into the text value; any other React nodes are rendered as Three.js children of the underlying mesh.
+</ParamField>
+
+<ParamField path="font" type="string">
+  URL to a font file (WOFF, WOFF2, TTF, or OTF). When omitted, troika's built-in default font is used.
+</ParamField>
+
+<ParamField path="fontSize" type="number" default="1">
+  Font size in Three.js world units.
+</ParamField>
+
+<ParamField path="fontWeight" type="number | string">
+  Font weight. Accepts numeric values (e.g. `400`, `700`) or CSS weight strings.
+</ParamField>
+
+<ParamField path="fontStyle" type="'italic' | 'normal'">
+  Font style.
+</ParamField>
+
+<ParamField path="color" type="ReactThreeFiber.Color">
+  Text fill colour.
+</ParamField>
+
+<ParamField path="characters" type="string">
+  A string containing every character the text may render. Pre-loading a character set avoids a flash-of-unstyled-content (FOUC) when the text content changes at runtime.
+</ParamField>
+
+<ParamField path="maxWidth" type="number">
+  Maximum line width in world units before text wraps.
+</ParamField>
+
+<ParamField path="lineHeight" type="number">
+  Line height as a multiple of the font's default line height.
+</ParamField>
+
+<ParamField path="letterSpacing" type="number">
+  Additional letter spacing in world units.
+</ParamField>
+
+<ParamField path="textAlign" type="'left' | 'right' | 'center' | 'justify'">
+  Horizontal text alignment within the bounding box.
+</ParamField>
+
+<ParamField path="anchorX" type="number | 'left' | 'center' | 'right'" default="'center'">
+  Horizontal anchor point of the text block relative to its local origin.
+</ParamField>
+
+<ParamField path="anchorY" type="number | 'top' | 'top-baseline' | 'middle' | 'bottom-baseline' | 'bottom'" default="'middle'">
+  Vertical anchor point of the text block relative to its local origin.
+</ParamField>
+
+<ParamField path="clipRect" type="[number, number, number, number]">
+  A `[minX, minY, maxX, maxY]` rectangle in local space. Glyphs outside this rectangle are clipped.
+</ParamField>
+
+<ParamField path="depthOffset" type="number">
+  Depth offset applied to the rendered glyphs. Useful to avoid z-fighting when overlaying text on surfaces.
+</ParamField>
+
+<ParamField path="direction" type="'auto' | 'ltr' | 'rtl'">
+  Base text direction for bidirectional text support.
+</ParamField>
+
+<ParamField path="overflowWrap" type="'normal' | 'break-word'">
+  Controls how lines break at word boundaries when `maxWidth` is set.
+</ParamField>
+
+<ParamField path="whiteSpace" type="'normal' | 'overflowWrap' | 'nowrap'">
+  White-space and line-break behaviour.
+</ParamField>
+
+<ParamField path="outlineWidth" type="number | string">
+  Width of the text outline. Can be a number in world units or a percentage string such as `'5%'`.
+</ParamField>
+
+<ParamField path="outlineOffsetX" type="number | string">
+  Horizontal offset of the outline.
+</ParamField>
+
+<ParamField path="outlineOffsetY" type="number | string">
+  Vertical offset of the outline.
+</ParamField>
+
+<ParamField path="outlineBlur" type="number | string">
+  Blur radius applied to the outline, creating a soft glow effect.
+</ParamField>
+
+<ParamField path="outlineColor" type="ReactThreeFiber.Color">
+  Outline colour.
+</ParamField>
+
+<ParamField path="outlineOpacity" type="number">
+  Outline opacity.
+</ParamField>
+
+<ParamField path="strokeWidth" type="number | string">
+  Width of a stroke drawn along the glyph paths.
+</ParamField>
+
+<ParamField path="strokeColor" type="ReactThreeFiber.Color">
+  Stroke colour.
+</ParamField>
+
+<ParamField path="strokeOpacity" type="number">
+  Stroke opacity.
+</ParamField>
+
+<ParamField path="fillOpacity" type="number">
+  Fill opacity independent of the material's overall opacity.
+</ParamField>
+
+<ParamField path="sdfGlyphSize" type="number" default="64">
+  Resolution of the signed distance field texture per glyph. Higher values give sharper text at large sizes but consume more GPU memory.
+</ParamField>
+
+<ParamField path="glyphGeometryDetail" type="number">
+  Number of subdivisions to use when generating glyph geometry for custom effects.
+</ParamField>
+
+<ParamField path="debugSDF" type="boolean">
+  Renders the raw SDF texture for debugging purposes.
+</ParamField>
+
+<ParamField path="onSync" type="(troika: any) => void">
+  Callback fired after troika-three-text syncs the mesh. Receives the underlying troika mesh instance.
+</ParamField>
+
+## Usage
+
+### Basic usage
+
+```jsx
+import { Suspense } from 'react'
+import { Text } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <Text color="white" anchorX="center" anchorY="middle">
+        Hello world!
+      </Text>
+    </Suspense>
+  )
+}
+```
+
+### Custom font with character pre-loading
+
+```jsx
+<Text
+  font="/fonts/inter.woff2"
+  characters="abcdefghijklmnopqrstuvwxyz0123456789!?"
+  fontSize={0.5}
+  color="#111"
+>
+  Dynamic label
+</Text>
+```
+
+### Multi-line text with alignment
+
+```jsx
+<Text
+  maxWidth={4}
+  textAlign="center"
+  lineHeight={1.4}
+  fontSize={0.3}
+>
+  {`Line one\nLine two\nLine three`}
+</Text>
+```
+
+### Text with outline
+
+```jsx
+<Text
+  fontSize={1}
+  color="white"
+  outlineWidth="4%"
+  outlineColor="black"
+>
+  Outlined text
+</Text>
+```
+
+<Tip>
+  Pass `characters` containing all characters your text might display to prevent a flash of unstyled content when the text value changes at runtime.
+</Tip>

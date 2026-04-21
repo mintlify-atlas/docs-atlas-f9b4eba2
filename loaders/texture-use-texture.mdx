@@ -1,0 +1,155 @@
+---
+title: Load Three.js textures with useTexture and Texture
+description: A suspense-aware hook for loading one or more Three.js textures from URLs, with support for arrays and key-mapped objects for PBR material workflows.
+---
+
+`useTexture` wraps R3F's `useLoader` with Three.js's `TextureLoader`, suspending the component until all requested textures are ready. After loading it immediately uploads each texture to the GPU via `gl.initTexture`, avoiding a one-frame stall on first render. The hook accepts a single URL, an array of URLs, or a key-to-URL record object for convenient use with PBR material props.
+
+<Note>
+  Components using `useTexture` must be wrapped in a `<Suspense>` boundary. The hook suspends until all requested textures have loaded.
+</Note>
+
+## `useTexture` hook
+
+```ts
+useTexture<Url extends string | string[] | Record<string, string>>(
+  input: Url,
+  onLoad?: (texture: MappedTextureType<Url>) => void
+): MappedTextureType<Url>
+```
+
+<ParamField path="input" type="string | string[] | Record<string, string>" required>
+  A single texture URL, an array of texture URLs, or an object mapping material prop names (e.g. `map`, `normalMap`) to URLs. The return type matches the input shape.
+</ParamField>
+
+<ParamField path="onLoad" type="(texture: MappedTextureType<Url>) => void">
+  Optional callback fired after the texture or textures have loaded. Runs in a `useLayoutEffect`.
+</ParamField>
+
+### Single texture
+
+```jsx
+import { useTexture } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function Surface() {
+  const texture = useTexture('/textures/diffuse.jpg')
+  return (
+    <mesh>
+      <planeGeometry />
+      <meshBasicMaterial map={texture} />
+    </mesh>
+  )
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={null}>
+      <Surface />
+    </Suspense>
+  )
+}
+```
+
+### Array of textures
+
+When you pass an array, the hook returns an array of `THREE.Texture` objects in the same order.
+
+```jsx
+function CubeFaces() {
+  const [day, night] = useTexture(['/day.jpg', '/night.jpg'])
+  return (
+    <mesh>
+      <boxGeometry />
+      <meshBasicMaterial map={day} />
+    </mesh>
+  )
+}
+```
+
+### Object map (PBR workflow)
+
+Pass a key-to-URL object to receive a texture object whose keys match your input. This is ideal for feeding multiple maps directly to a material.
+
+```jsx
+function PBRMesh() {
+  const props = useTexture({
+    map: '/textures/color.jpg',
+    normalMap: '/textures/normal.jpg',
+    roughnessMap: '/textures/roughness.jpg',
+    metalnessMap: '/textures/metalness.jpg',
+  })
+  return (
+    <mesh>
+      <sphereGeometry />
+      <meshStandardMaterial {...props} />
+    </mesh>
+  )
+}
+```
+
+### `onLoad` callback
+
+Use `onLoad` to configure texture properties (such as color space or wrapping) immediately after loading, before the first render.
+
+```jsx
+function Floor() {
+  const texture = useTexture('/floor.jpg', (t) => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    t.repeat.set(4, 4)
+  })
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[10, 10]} />
+      <meshStandardMaterial map={texture} />
+    </mesh>
+  )
+}
+```
+
+### Preloading
+
+```jsx
+useTexture.preload('/textures/diffuse.jpg')
+useTexture.preload(['/textures/diffuse.jpg', '/textures/normal.jpg'])
+```
+
+### Clearing the cache
+
+```jsx
+useTexture.clear('/textures/diffuse.jpg')
+```
+
+## `Texture` component
+
+The `Texture` component exposes `useTexture` through a render-prop children API for cases where you prefer a declarative JSX approach.
+
+<ParamField path="input" type="string | string[] | Record<string, string>" required>
+  Mirrors the `input` parameter of `useTexture`.
+</ParamField>
+
+<ParamField path="onLoad" type="(texture: MappedTextureType) => void">
+  Optional callback fired after loading. Mirrors `useTexture`'s `onLoad` parameter.
+</ParamField>
+
+<ParamField path="children" type="(texture: MappedTextureType) => React.ReactNode">
+  Render prop receiving the loaded texture or texture collection.
+</ParamField>
+
+```jsx
+import { Texture } from '@react-three/drei'
+import { Suspense } from 'react'
+
+export default function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <mesh>
+        <planeGeometry />
+        <Texture input="/diffuse.jpg">
+          {(texture) => <meshBasicMaterial map={texture} />}
+        </Texture>
+      </mesh>
+    </Suspense>
+  )
+}
+```

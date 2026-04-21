@@ -1,0 +1,222 @@
+---
+title: "MotionPathControls: Curve-based object animation controller"
+description: "Animates a camera or Object3D along bezier or Catmull-Rom curves with damping, looping, focus tracking, and a useMotion hook for full imperative control."
+---
+
+`MotionPathControls` accepts one or more Three.js curves — defined either declaratively as JSX children or imperatively via the `curves` prop — and moves an object smoothly along the combined path each frame. By default it drives the active camera, but any `THREE.Object3D` ref can be targeted. An optional `focus` prop keeps the object looking at a fixed point or another moving object, and the `useMotion` hook gives full programmatic control over the current position along the path.
+
+## Props
+
+<ParamField path="curves" type="THREE.Curve<THREE.Vector3>[]" default="[]">
+  An array of Three.js curve objects. If omitted, curves are taken from JSX children (e.g., `<cubicBezierCurve3 />`).
+</ParamField>
+
+<ParamField path="object" type="React.RefObject<THREE.Object3D>">
+  The object to move along the path. Defaults to the active R3F camera.
+</ParamField>
+
+<ParamField path="focus" type="[x: number, y: number, z: number] | React.RefObject<THREE.Object3D>">
+  A fixed world-space position or a ref to another object. When provided, the moving object looks at this target each frame.
+</ParamField>
+
+<ParamField path="offset" type="number">
+  A controlled position along the path between `0` (start) and `1` (end). When omitted, use `useMotion().current` to drive position manually.
+</ParamField>
+
+<ParamField path="loop" type="boolean" default="true">
+  When `true`, the offset wraps from `1` back to `0`, producing an infinite loop. When `false`, it is clamped to `[0, 1]`.
+</ParamField>
+
+<ParamField path="smooth" type="boolean | number" default="false">
+  When `true` or a number, converts the combined path into a `CatmullRomCurve3` for smoother interpolation between curve segments. A number value specifies the number of sample points.
+</ParamField>
+
+<ParamField path="damping" type="number" default="0.1">
+  Easing factor for movement along the path. Lower values reach the target position more slowly.
+</ParamField>
+
+<ParamField path="focusDamping" type="number" default="0.1">
+  Easing factor for the look-at rotation toward `focus`.
+</ParamField>
+
+<ParamField path="maxSpeed" type="number" default="Infinity">
+  Maximum speed in units per second for both position and focus damping.
+</ParamField>
+
+<ParamField path="eps" type="number" default="0.00001">
+  Convergence threshold for the damping calculations.
+</ParamField>
+
+<ParamField path="debug" type="boolean" default="false">
+  When `true`, renders small sphere meshes along the path at evenly spaced intervals.
+</ParamField>
+
+<ParamField path="debugColor" type="THREE.ColorRepresentation" default="'black'">
+  Color of the debug sphere meshes.
+</ParamField>
+
+## useMotion hook
+
+Call `useMotion()` inside any component that is a descendant of `<MotionPathControls>` to access and mutate the motion state:
+
+| Field | Type | Description |
+|---|---|---|
+| `current` | `number` | Mutable goal position. Set this value to drive the object; it may exceed `0–1` for looping. |
+| `offset` | `number` | Damped, normalised position currently applied to the object. |
+| `path` | `THREE.CurvePath<THREE.Vector3>` | The combined curve path. |
+| `object` | `React.RefObject<THREE.Object3D>` | The object being moved. |
+| `focus` | `[x,y,z] \| React.RefObject<THREE.Object3D> \| undefined` | The current focus target. |
+| `point` | `THREE.Vector3` | The object's current position on the curve. |
+| `tangent` | `THREE.Vector3` | The curve tangent at the current position. |
+| `next` | `THREE.Vector3` | The next position on the curve, useful for look-ahead. |
+
+## Declarative curves
+
+Define curves as JSX children for a concise, readable setup:
+
+```jsx
+import { useRef } from 'react'
+import { MotionPathControls } from '@react-three/drei'
+
+function Scene() {
+  const target = useRef()
+
+  return (
+    <>
+      <MotionPathControls offset={0} focus={target} damping={0.2}>
+        <cubicBezierCurve3
+          v0={[-5, -5, 0]}
+          v1={[-10, 0, 0]}
+          v2={[0, 3, 0]}
+          v3={[6, 3, 0]}
+        />
+        <cubicBezierCurve3
+          v0={[6, 3, 0]}
+          v1={[10, 5, 5]}
+          v2={[5, 5, 5]}
+          v3={[5, 5, 5]}
+        />
+      </MotionPathControls>
+
+      <mesh ref={target}>
+        <boxGeometry />
+        <meshStandardMaterial color="orange" />
+      </mesh>
+    </>
+  )
+}
+```
+
+## Imperative curves
+
+Pass a `curves` array when you construct the path programmatically:
+
+```jsx
+import * as THREE from 'three'
+import { MotionPathControls } from '@react-three/drei'
+
+const curves = [
+  new THREE.CubicBezierCurve3(
+    new THREE.Vector3(-5, -5, 0),
+    new THREE.Vector3(-10, 0, 0),
+    new THREE.Vector3(0, 3, 0),
+    new THREE.Vector3(6, 3, 0)
+  ),
+  new THREE.CubicBezierCurve3(
+    new THREE.Vector3(6, 3, 0),
+    new THREE.Vector3(10, 5, 5),
+    new THREE.Vector3(5, 3, 5),
+    new THREE.Vector3(5, 5, 5)
+  ),
+]
+
+function Scene() {
+  return <MotionPathControls curves={curves} loop damping={0.15} />
+}
+```
+
+## Continuous loop with useMotion
+
+Use the `useMotion` hook to increment `current` each frame for a smooth, continuous flythrough:
+
+```jsx
+import { useFrame } from '@react-three/fiber'
+import { MotionPathControls, useMotion } from '@react-three/drei'
+
+function Loop() {
+  const motion = useMotion()
+
+  useFrame((_, delta) => {
+    // Increment freely — values above 1 wrap automatically when loop=true
+    motion.current += delta * 0.2
+    // Orient toward the next point on the path
+    motion.object.current.lookAt(motion.next)
+  })
+
+  return null
+}
+
+function Scene() {
+  return (
+    <MotionPathControls loop focusDamping={0}>
+      <cubicBezierCurve3
+        v0={[-5, -5, 0]}
+        v1={[-10, 0, 0]}
+        v2={[0, 3, 0]}
+        v3={[6, 3, 0]}
+      />
+      <Loop />
+    </MotionPathControls>
+  )
+}
+```
+
+## Moving a non-camera object
+
+Provide an `object` ref to animate a mesh or any other `Object3D` along the path instead of the camera:
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { MotionPathControls } from '@react-three/drei'
+import * as THREE from 'three'
+
+function Scene() {
+  const meshRef = useRef()
+  const motionRef = useRef()
+
+  useFrame(() => {
+    if (motionRef.current) {
+      motionRef.current.motion.current += 0.005
+    }
+  })
+
+  return (
+    <>
+      <MotionPathControls
+        ref={motionRef}
+        object={meshRef}
+        loop
+        damping={0.05}
+        curves={[
+          new THREE.CatmullRomCurve3([
+            new THREE.Vector3(-4, 0, 0),
+            new THREE.Vector3(0, 3, 0),
+            new THREE.Vector3(4, 0, 0),
+            new THREE.Vector3(0, -3, 0),
+          ], true)
+        ]}
+        debug
+      />
+      <mesh ref={meshRef}>
+        <sphereGeometry args={[0.2, 16, 16]} />
+        <meshStandardMaterial color="hotpink" />
+      </mesh>
+    </>
+  )
+}
+```
+
+<Tip>
+  Set `damping` and `focusDamping` to `0` when you want instantaneous positioning — for example when scrubbing a timeline manually. With damping at `0` you can apply your own easing outside the component.
+</Tip>

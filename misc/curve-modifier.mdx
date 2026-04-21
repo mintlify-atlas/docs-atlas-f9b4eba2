@@ -1,0 +1,67 @@
+---
+title: "CurveModifier: deform a mesh along a 3D curve path"
+description: "Wraps three-stdlib's Flow to deform a mesh's geometry along a THREE.Curve. The ref exposes the Flow instance for runtime curve updates."
+---
+
+`CurveModifier` uses `three-stdlib`'s `Flow` utility to deform a mesh along a `THREE.Curve<THREE.Vector3>`. The child mesh is bent and stretched to follow the curve's path. The forwarded ref gives you access to the underlying `Flow` instance to update the curve at runtime.
+
+```jsx
+import { useRef, useMemo } from 'react'
+import { CatmullRomCurve3, Vector3 } from 'three'
+import { CurveModifier } from '@react-three/drei'
+
+function BentTube() {
+  const flowRef = useRef()
+
+  const curve = useMemo(() => new CatmullRomCurve3([
+    new Vector3(-3, 0, 0),
+    new Vector3(-1, 2, 0),
+    new Vector3(1, -2, 0),
+    new Vector3(3, 0, 0),
+  ]), [])
+
+  return (
+    <CurveModifier ref={flowRef} curve={curve}>
+      <mesh>
+        <tubeGeometry args={[curve, 70, 0.1, 8, false]} />
+        <meshStandardMaterial color="orange" />
+      </mesh>
+    </CurveModifier>
+  )
+}
+```
+
+## Props
+
+<ParamField path="curve" type="THREE.Curve<THREE.Vector3>">
+  The curve to deform the mesh along. Changing this prop updates the Flow's curve.
+</ParamField>
+
+<ParamField path="children" type="React.ReactElement">
+  A single mesh element to deform. The mesh's geometry is modified in place.
+</ParamField>
+
+## Ref
+
+The forwarded ref is a `Flow` instance from `three-stdlib`:
+
+```ts
+type CurveModifierRef = Flow
+```
+
+Call `flowRef.current.updateCurve(0, newCurve)` to swap the curve at runtime.
+
+```jsx
+useFrame(({ clock }) => {
+  if (flowRef.current) {
+    // Dynamically update the curve each frame
+    const t = clock.getElapsedTime()
+    const pts = [...] // recompute points
+    flowRef.current.updateCurve(0, new CatmullRomCurve3(pts))
+  }
+})
+```
+
+<Note>
+  The child mesh geometry is consumed and rendered via a `<primitive>` internally. The mesh's original position is replaced by the Flow's output object.
+</Note>

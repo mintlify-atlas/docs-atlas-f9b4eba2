@@ -1,0 +1,53 @@
+---
+title: "CycleRaycast: cycle through overlapping 3D objects"
+description: "Lets users scroll or press Tab to cycle through stacked intersected objects in a Three.js scene, exposing each hit via an onChanged callback."
+---
+
+`CycleRaycast` intercepts pointer events and lets users cycle through all objects under the cursor using the mouse wheel or a configurable key. It calls `onChanged` with the full intersection list and the current cycle index, so you can highlight or act on whichever object is currently "selected" in the stack.
+
+```jsx
+import { CycleRaycast } from '@react-three/drei'
+
+function Scene() {
+  const [hovered, setHovered] = React.useState(null)
+  const [cycleIndex, setCycle] = React.useState(0)
+
+  return (
+    <>
+      <CycleRaycast
+        onChanged={(hits, cycle) => {
+          setHovered(hits[cycle] ?? null)
+          setCycle(cycle)
+        }}
+      />
+      {/* Your scene objects */}
+    </>
+  )
+}
+```
+
+## Props
+
+<ParamField path="onChanged" type="(hits: Intersection[], cycle: number) => void">
+  Called whenever the user scrolls or presses the cycle key. `hits` is the full intersection array; `cycle` is the current index.
+</ParamField>
+
+<ParamField path="preventDefault" type="boolean">
+  Prevent default scroll/key behavior while cycling. Default: `true`.
+</ParamField>
+
+<ParamField path="scroll" type="boolean">
+  Enable mouse wheel cycling. Default: `true`.
+</ParamField>
+
+<ParamField path="keyCode" type="number">
+  Key code for keyboard cycling. Default: `9` (Tab).
+</ParamField>
+
+<ParamField path="portal" type="RefObject<HTMLElement>">
+  DOM element to attach events to. Defaults to the canvas parent.
+</ParamField>
+
+<Note>
+  `CycleRaycast` is a web-only component (uses DOM events) and is not available in the native build.
+</Note>

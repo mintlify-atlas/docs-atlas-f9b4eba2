@@ -1,0 +1,102 @@
+---
+title: "Using drei with React Native"
+description: "Learn how to use @react-three/drei in React Native projects by importing from the native entry point and understand which components are available."
+---
+
+drei ships a dedicated entry point for React Native that excludes browser-only components while keeping the full core library available. If you are building a React Native app with [@react-three/fiber](https://github.com/pmndrs/react-three-fiber), import from `@react-three/drei/native` instead of the default export. This page explains how to use that route and what to expect from it.
+
+## Import from the native entry point
+
+Replace any `@react-three/drei` imports with `@react-three/drei/native`:
+
+```jsx
+import { PerspectiveCamera, OrbitControls, Environment } from '@react-three/drei/native'
+```
+
+The `package.json` `"react-native"` field is set to `native/index.cjs.js`, so bundlers that respect the React Native resolution algorithm — such as Metro — will resolve this automatically when you import `@react-three/drei` in a React Native context. If you need to be explicit (for example in a monorepo or custom Metro config), use the `/native` path directly.
+
+## What is not available in the native route
+
+The native entry point intentionally excludes two components that depend on browser-only DOM APIs:
+
+| Component | Reason excluded |
+| --------- | --------------- |
+| `Html`    | Uses DOM `HTMLElement` positioning and `ReactDOM.createPortal` |
+| `Loader`  | Renders a DOM-based progress overlay using `Html` internally |
+
+<Warning>
+  Importing `Html` or `Loader` from `@react-three/drei/native` will not work. If your code currently uses either component, you will need to replace them with a native-compatible alternative before switching to the native route.
+</Warning>
+
+## What is available
+
+The native route re-exports everything from `@react-three/drei/core`, which covers the entire shared library. This includes:
+
+**Cameras**
+- `PerspectiveCamera`, `OrthographicCamera`, `CubeCamera`
+
+**Controls**
+- `OrbitControls`, `MapControls`, `TrackballControls`, `ArcballControls`, `FlyControls`, `DeviceOrientationControls`, `FirstPersonControls`, `PointerLockControls`, `TransformControls`, `CameraControls`, `MotionPathControls`
+
+**Abstractions**
+- `Billboard`, `Text`, `Text3D`, `Image`, `Line`, `Trail`, `Decal`, `Clone`, `Splat`, `MarchingCubes`, `Sampler`, `Edges`, `Outlines`, `GradientTexture`, `Effects`, and more
+
+**Shaders & materials**
+- `MeshReflectorMaterial`, `MeshWobbleMaterial`, `MeshDistortMaterial`, `MeshRefractionMaterial`, `MeshTransmissionMaterial`, `MeshDiscardMaterial`, `PointMaterial`, `shaderMaterial`, `softShadows`
+
+**Staging & lighting**
+- `Environment`, `Stage`, `Sky`, `Stars`, `Cloud`, `Sparkles`, `ContactShadows`, `AccumulativeShadows`, `SpotLight`, `Caustics`, `Float`, `Bounds`, `Center`, `Backdrop`
+
+**Loaders**
+- `useGLTF` / `Gltf`, `useTexture` / `Texture`, `useFBX` / `Fbx`, `useVideoTexture` / `VideoTexture`, `useKTX2` / `Ktx2`, `useFont`, `Progress`, `useSpriteLoader`
+
+**Performance**
+- `Instances`, `Points`, `Segments`, `Detailed`, `Bvh`, `PerformanceMonitor`, `AdaptiveDpr`, `AdaptiveEvents`
+
+**Misc & hooks**
+- `Stats`, `StatsGl`, `Wireframe`, `Helper`, `useAnimations`, `useCursor`, `useIntersect`, `useCamera`, `useDepthBuffer`, `DetectGPU`, `Fbo`, `useAspect`, `useContextBridge`, `useBoxProjectedEnv`
+
+<Note>
+  Controls that rely on pointer-lock or keyboard events (such as `PointerLockControls` or `FirstPersonControls`) exist in the bundle but may not behave as expected on mobile. Test on device before shipping.
+</Note>
+
+## Example usage in React Native
+
+The following example renders a rotating box in a React Native app using drei's native exports and `@react-three/fiber`'s React Native Canvas.
+
+```jsx
+import React, { useRef } from 'react'
+import { View } from 'react-native'
+import { Canvas, useFrame } from '@react-three/fiber/native'
+import { OrbitControls, Environment } from '@react-three/drei/native'
+
+function RotatingBox() {
+  const meshRef = useRef()
+  useFrame((_, delta) => {
+    meshRef.current.rotation.y += delta
+  })
+  return (
+    <mesh ref={meshRef}>
+      <boxGeometry args={[1, 1, 1]} />
+      <meshStandardMaterial color="hotpink" />
+    </mesh>
+  )
+}
+
+export default function App() {
+  return (
+    <View style={{ flex: 1 }}>
+      <Canvas>
+        <ambientLight intensity={0.5} />
+        <Environment preset="city" />
+        <RotatingBox />
+        <OrbitControls />
+      </Canvas>
+    </View>
+  )
+}
+```
+
+<Tip>
+  Import `Canvas` from `@react-three/fiber/native`, not from `@react-three/fiber`. The native fiber package handles the difference between WebGL contexts on iOS and Android.
+</Tip>

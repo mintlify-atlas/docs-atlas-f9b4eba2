@@ -1,0 +1,148 @@
+---
+title: 'SpotLight: Volumetric Spot Light with Soft Particles'
+description: 'Volumetric spot light that renders a visible cone using a custom shader. Supports depth-buffer soft particles, adjustable cone radii, and debug helpers.'
+---
+
+`SpotLight` extends Three.js `spotLight` with a visible volumetric cone mesh. The cone is rendered using a custom `SpotLightMaterial` that simulates light scattering within the beam. Passing a depth buffer converts the cone geometry into a soft particle that correctly blends with scene geometry.
+
+## Props
+
+All standard Three.js `spotLight` props are forwarded. The following additional props control the volumetric cone.
+
+<ParamField path="attenuation" type="number" default="5">
+  Falloff rate of the light along the cone axis. Higher values produce a shorter, brighter beam that fades quickly.
+</ParamField>
+
+<ParamField path="anglePower" type="number" default="5">
+  Sharpness of the diffuse cone edge. Higher values create a harder cone boundary.
+</ParamField>
+
+<ParamField path="radiusTop" type="number" default="0.1">
+  Radius of the cone at the light source. Defaults to `0.1`.
+</ParamField>
+
+<ParamField path="radiusBottom" type="number">
+  Radius of the cone at the far end. Defaults to `angle * 7` if not specified.
+</ParamField>
+
+<ParamField path="opacity" type="number" default="1">
+  Opacity of the volumetric cone mesh.
+</ParamField>
+
+<ParamField path="color" type="string | number" default="'white'">
+  Color of the volumetric cone. Should match the light color for a coherent look.
+</ParamField>
+
+<ParamField path="depthBuffer" type="DepthTexture">
+  A depth texture from `useDepthBuffer`. When provided, the cone is rendered as a soft particle that fades near scene geometry rather than clipping through surfaces.
+</ParamField>
+
+<ParamField path="volumetric" type="boolean" default="true">
+  When `false`, renders a standard `spotLight` without the volumetric cone mesh.
+</ParamField>
+
+<ParamField path="debug" type="boolean" default="false">
+  Renders a `SpotLightHelper` to visualize the light frustum in the scene.
+</ParamField>
+
+## SpotLightShadow
+
+`SpotLightShadow` is a companion component that casts custom alpha-mapped shadows from the spot light. Place it as a child of `SpotLight`.
+
+<ParamField path="distance" type="number" default="0.4">
+  Distance along the light axis where the shadow mesh is placed, as a fraction of the full light distance.
+</ParamField>
+
+<ParamField path="alphaTest" type="number" default="0.5">
+  Alpha cutoff threshold for the shadow mesh material.
+</ParamField>
+
+<ParamField path="scale" type="number">
+  Scale of the shadow plane mesh.
+</ParamField>
+
+<ParamField path="map" type="THREE.Texture">
+  Alpha texture used to mask the shadow. Defines the shadow pattern projected onto the scene.
+</ParamField>
+
+<ParamField path="shader" type="string">
+  Custom GLSL fragment shader for procedural shadow generation. When provided, a `WebGLRenderTarget` is used to render the shader each frame.
+</ParamField>
+
+<ParamField path="width" type="number" default="512">
+  Width of the shadow map render target in pixels.
+</ParamField>
+
+<ParamField path="height" type="number" default="512">
+  Height of the shadow map render target in pixels.
+</ParamField>
+
+## Usage
+
+### Basic volumetric spotlight
+
+```jsx
+import { SpotLight } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <SpotLight
+      position={[0, 5, 0]}
+      distance={8}
+      angle={0.3}
+      attenuation={5}
+      anglePower={5}
+      color="white"
+    />
+  )
+}
+```
+
+### Soft-particle spotlight with depth buffer
+
+Pass a depth buffer from `useDepthBuffer` to blend the cone against scene geometry.
+
+```jsx
+import { SpotLight, useDepthBuffer } from '@react-three/drei'
+
+function Scene() {
+  const depthBuffer = useDepthBuffer({ frames: 1 })
+
+  return (
+    <SpotLight
+      depthBuffer={depthBuffer}
+      position={[3, 5, 3]}
+      target-position={[0, 0, 0]}
+      distance={8}
+      angle={0.25}
+      attenuation={6}
+      anglePower={4}
+      color="cyan"
+      opacity={0.6}
+    />
+  )
+}
+```
+
+### Custom alpha shadow
+
+Use `SpotLightShadow` to project a gobo-like shadow pattern.
+
+```jsx
+import { SpotLight, SpotLightShadow } from '@react-three/drei'
+import { useTexture } from '@react-three/drei'
+
+function Scene() {
+  const gobo = useTexture('/textures/gobo.png')
+
+  return (
+    <SpotLight position={[0, 8, 0]} angle={0.4} distance={10} castShadow>
+      <SpotLightShadow scale={4} distance={0.5} map={gobo} />
+    </SpotLight>
+  )
+}
+```
+
+<Note>
+  The `SpotLight` component always sets `castShadow` to `true` on the underlying `spotLight`. To disable shadows, use `volumetric={false}` and render a standard `<spotLight>` instead.
+</Note>

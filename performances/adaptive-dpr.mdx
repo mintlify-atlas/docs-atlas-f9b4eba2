@@ -1,0 +1,107 @@
+---
+title: "AdaptiveDpr: scale pixel ratio on performance regress"
+description: "Reduce the renderer's pixel ratio during performance regress and restore it when the system recovers, trading visual quality for frame rate automatically."
+---
+
+`AdaptiveDpr` reads `state.performance.current` from the R3F store — a value between 0 and 1 maintained by the performance regress system — and multiplies it by the canvas's initial DPR to produce an adaptive pixel ratio. When R3F's performance system signals regress (for example, because a control's `regress` flag is set), the DPR drops proportionally, reducing the number of pixels the GPU must render. When performance recovers, the DPR returns to its baseline. The component is side-effect free: it restores the original DPR on unmount.
+
+## Basic usage
+
+Place `AdaptiveDpr` anywhere inside `<Canvas>`. It renders nothing visible.
+
+```jsx
+import { AdaptiveDpr } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas dpr={[1, 2]}>
+      <AdaptiveDpr />
+      <Scene />
+    </Canvas>
+  )
+}
+```
+
+## Pixelated mode
+
+Enable the `pixelated` prop to also set `imageRendering: pixelated` on the canvas element when the DPR is below 1. This makes the low-resolution pixels crisper instead of blurred by the browser's default bicubic upscaling.
+
+```jsx
+<AdaptiveDpr pixelated />
+```
+
+## Combining with orbit controls regress
+
+R3F controls such as `OrbitControls` accept a `regress` prop that triggers a performance regress signal while the camera is moving. Combine this with `AdaptiveDpr` to drop resolution only during camera motion and restore full quality when the camera is still.
+
+```jsx
+import { OrbitControls, AdaptiveDpr } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas dpr={[1, 2]}>
+      <OrbitControls regress />
+      <AdaptiveDpr pixelated />
+      <Scene />
+    </Canvas>
+  )
+}
+```
+
+## Combining with PerformanceMonitor
+
+For sustained quality adaptation (not just during camera movement), combine `AdaptiveDpr` with `PerformanceMonitor`. The monitor drives R3F's performance factor, and `AdaptiveDpr` applies it to the DPR automatically.
+
+```jsx
+import { PerformanceMonitor, AdaptiveDpr } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas dpr={[1, 2]}>
+      <PerformanceMonitor />
+      <AdaptiveDpr />
+      <Scene />
+    </Canvas>
+  )
+}
+```
+
+## Props
+
+<ParamField path="pixelated" type="boolean">
+  When `true`, sets `canvas.style.imageRendering = 'pixelated'` when the
+  current performance factor is below 1, and restores it to `'auto'` when
+  performance recovers. This prevents the browser from blurring upscaled
+  pixels, producing a sharper (if blockier) image at reduced resolution.
+</ParamField>
+
+## How it works
+
+`AdaptiveDpr` subscribes to three pieces of R3F state:
+
+- `state.performance.current` — a value between 0 and 1 set by the performance system
+- `state.viewport.initialDpr` — the DPR the canvas was initialized with
+- `state.internal.active` — whether the canvas is currently rendering
+
+The effective DPR is `current * initialDpr`. When `current` is 1 (full performance), the DPR equals the canvas's initial value. When `current` drops (e.g. to 0.5 during regress), the DPR halves, meaning the GPU renders one quarter of the pixels.
+
+<Note>
+  `AdaptiveDpr` does not control when `performance.current` changes — that is
+  managed by R3F's internal regress system or by `PerformanceMonitor`. On its
+  own, `AdaptiveDpr` only responds to changes that other parts of your app
+  trigger.
+</Note>
+
+<Tip>
+  Set `dpr={[1, 2]}` on `<Canvas>` (a range) rather than a fixed value. This
+  tells R3F the acceptable DPR range and lets `AdaptiveDpr` operate
+  within it. A fixed DPR like `dpr={2}` means `initialDpr` is always 2, so
+  `AdaptiveDpr` will still scale it down — but this can produce a DPR below
+  1 on low-end devices.
+</Tip>
+
+<Warning>
+  `AdaptiveDpr` restores `initialDpr` on unmount only if the canvas is still
+  active. If you unmount it while the canvas is paused, the reduced DPR will
+  persist until the next render cycle triggers a recovery.
+</Warning>

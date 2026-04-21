@@ -1,0 +1,154 @@
+---
+title: "Render anti-aliased shader wireframes with Wireframe"
+description: "Wireframe renders anti-aliased shader-based edges on any geometry, with per-edge control over color, dashing, fill, and thickness in a single draw pass."
+---
+
+`Wireframe` renders an anti-aliased wireframe using barycentric coordinates in a custom shader. Unlike Three.js's built-in `wireframe` material flag, this approach gives you per-edge control over color, opacity, dashing, and thickness, and it renders in a single pass on top of your existing material.
+
+<Note>
+  `Wireframe` requires non-indexed geometry. If the geometry is indexed, it will be converted automatically and a warning will be logged. `THREE.WireframeGeometry` is not supported.
+</Note>
+
+## Usage
+
+### As a child of a mesh
+
+Place `<Wireframe />` inside any `<mesh>`, `<line>`, or `<points>` element. It patches the parent's geometry in place and injects the wireframe shader into the existing material.
+
+```jsx
+import { Wireframe } from '@react-three/drei'
+
+function Box() {
+  return (
+    <mesh>
+      <boxGeometry />
+      <meshStandardMaterial color="royalblue" />
+      <Wireframe stroke="#ffffff" thickness={0.02} />
+    </mesh>
+  )
+}
+```
+
+### With an explicit geometry prop
+
+Pass a `BufferGeometry` or a ref to one when you want the wireframe to render independently of a parent mesh.
+
+```jsx
+import { useRef } from 'react'
+import { Wireframe } from '@react-three/drei'
+
+function StandaloneWireframe() {
+  const geo = useRef()
+
+  return (
+    <>
+      <mesh ref={geo}>
+        <torusKnotGeometry args={[1, 0.3, 128, 16]} />
+        <meshStandardMaterial visible={false} />
+      </mesh>
+      <Wireframe geometry={geo} stroke="#ff0000" fill="#00ff00" fillMix={0.5} />
+    </>
+  )
+}
+```
+
+## Props
+
+<ParamField path="geometry" type="THREE.BufferGeometry | React.RefObject<THREE.BufferGeometry>">
+  The geometry to draw the wireframe on. When omitted, `Wireframe` must be a child of a mesh, line, or points element whose geometry it will use.
+</ParamField>
+
+<ParamField path="simplify" type="boolean" default="false">
+  When `true`, removes some edges from the wireframe to reduce visual noise on dense meshes.
+</ParamField>
+
+<ParamField path="stroke" type="THREE.ColorRepresentation" default="#ff0000">
+  Color of the wireframe lines.
+</ParamField>
+
+<ParamField path="strokeOpacity" type="number" default="1">
+  Opacity of the wireframe lines. `0` is fully transparent, `1` is fully opaque.
+</ParamField>
+
+<ParamField path="thickness" type="number" default="0.05">
+  Thickness of each wireframe edge.
+</ParamField>
+
+<ParamField path="fill" type="THREE.ColorRepresentation" default="#00ff00">
+  Color used for the interior fill. Only visible when `fillMix` is greater than `0`.
+</ParamField>
+
+<ParamField path="fillMix" type="number" default="0">
+  Blend factor between the base material color and the wireframe fill. `0` shows the base material; `1` shows only the fill color.
+</ParamField>
+
+<ParamField path="fillOpacity" type="number" default="0.25">
+  Opacity of the interior fill.
+</ParamField>
+
+<ParamField path="colorBackfaces" type="boolean" default="false">
+  When `true`, renders edges facing away from the camera using `backfaceStroke`.
+</ParamField>
+
+<ParamField path="backfaceStroke" type="THREE.ColorRepresentation" default="#0000ff">
+  Color of edges that face away from the camera. Only visible when `colorBackfaces` is `true`.
+</ParamField>
+
+<ParamField path="dash" type="boolean" default="false">
+  Renders edges as dashes instead of solid lines.
+</ParamField>
+
+<ParamField path="dashInvert" type="boolean" default="true">
+  Inverts which part of the dash pattern is drawn.
+</ParamField>
+
+<ParamField path="dashRepeats" type="number" default="4">
+  Number of dash cycles along each edge.
+</ParamField>
+
+<ParamField path="dashLength" type="number" default="0.5">
+  Length of each drawn dash as a fraction of the repeat interval. `0.5` means the dash and gap are equal.
+</ParamField>
+
+<ParamField path="squeeze" type="boolean" default="false">
+  Narrows the wireframe lines toward the midpoint of each edge, producing a tapered appearance.
+</ParamField>
+
+<ParamField path="squeezeMin" type="number" default="0.2">
+  Minimum line width at the narrowest point when `squeeze` is enabled.
+</ParamField>
+
+<ParamField path="squeezeMax" type="number" default="1">
+  Maximum line width at the widest point when `squeeze` is enabled.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```jsx Dashed wireframe
+<mesh>
+  <icosahedronGeometry args={[1, 2]} />
+  <meshStandardMaterial color="gray" />
+  <Wireframe
+    dash
+    dashRepeats={6}
+    dashLength={0.4}
+    stroke="#ffcc00"
+    thickness={0.03}
+  />
+</mesh>
+```
+
+```jsx Filled wireframe
+<Wireframe
+  geometry={bufferGeoRef}
+  fill="#ff00ff"
+  fillMix={0.8}
+  fillOpacity={0.6}
+  stroke="#ffffff"
+  strokeOpacity={0.9}
+/>
+```
+
+</CodeGroup>

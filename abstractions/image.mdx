@@ -1,0 +1,134 @@
+---
+title: "Image: Shader-based textured plane with cover scaling"
+description: "A shader mesh that displays images with CSS-cover auto-scaling, zoom, grayscale, rounded corners, and colour tinting in React Three Fiber."
+---
+
+`<Image>` renders a textured plane mesh using a custom shader material that mimics CSS `background-size: cover` behaviour. You can animate material properties at runtime through a ref, making it straightforward to build galleries, cards, or any image-heavy 3D UI.
+
+<Note>
+  `<Image>` requires either a `url` prop (a path to an image file) or a `texture` prop (a pre-loaded `THREE.Texture`). Providing both or neither will throw an error.
+</Note>
+
+## Props
+
+<ParamField path="url" type="string">
+  Path or URL to the image file. Mutually exclusive with `texture`.
+</ParamField>
+
+<ParamField path="texture" type="THREE.Texture">
+  A pre-loaded Three.js texture. Mutually exclusive with `url`.
+</ParamField>
+
+<ParamField path="segments" type="number" default="1">
+  Number of plane geometry subdivisions. Increase when using displacement or custom geometry effects.
+</ParamField>
+
+<ParamField path="scale" type="number | [number, number]" default="1">
+  Uniform scale or `[width, height]` tuple. The shader uses these values to compute cover-fit bounds.
+</ParamField>
+
+<ParamField path="color" type="Color" default="white">
+  Tint color mixed into the texture output.
+</ParamField>
+
+<ParamField path="zoom" type="number" default="1">
+  Zoom factor applied inside the shader. Values above `1` crop into the texture centre.
+</ParamField>
+
+<ParamField path="radius" type="number" default="0">
+  Rounded-corner radius expressed as a fraction of the resolution. Range `0`–`1`.
+</ParamField>
+
+<ParamField path="grayscale" type="number" default="0">
+  Grayscale blend intensity. `0` is full colour, `1` is fully desaturated.
+</ParamField>
+
+<ParamField path="opacity" type="number" default="1">
+  Overall opacity. Set `transparent` to `true` when using values below `1`.
+</ParamField>
+
+<ParamField path="transparent" type="boolean" default="false">
+  Enables transparency on the underlying material.
+</ParamField>
+
+<ParamField path="toneMapped" type="boolean">
+  Passed directly to the shader material's `toneMapped` flag.
+</ParamField>
+
+<ParamField path="side" type="THREE.Side">
+  Which side of the plane to render. Accepts `THREE.FrontSide`, `THREE.BackSide`, or `THREE.DoubleSide`.
+</ParamField>
+
+## Usage
+
+### Basic image from URL
+
+```jsx
+import { Image } from '@react-three/drei'
+
+function Scene() {
+  return <Image url="/photo.jpg" scale={[3, 2]} />
+}
+```
+
+### Animating shader uniforms at runtime
+
+Access `material` properties through a ref to drive effects from `useFrame`.
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Image } from '@react-three/drei'
+
+function AnimatedImage() {
+  const ref = useRef()
+
+  useFrame(({ clock }) => {
+    ref.current.material.zoom = 1 + Math.sin(clock.elapsedTime) * 0.2
+    ref.current.material.grayscale = Math.sin(clock.elapsedTime * 0.5) * 0.5 + 0.5
+  })
+
+  return <Image ref={ref} url="/photo.jpg" scale={[3, 2]} />
+}
+```
+
+### Transparent image
+
+```jsx
+<Image url="/logo.png" transparent opacity={0.6} />
+```
+
+### Pre-loaded texture
+
+```jsx
+import { useTexture, Image } from '@react-three/drei'
+
+function TexturedImage() {
+  const texture = useTexture('/photo.jpg')
+  return <Image texture={texture} scale={[4, 3]} />
+}
+```
+
+### Custom plane geometry
+
+You can replace the default `<planeGeometry>` by passing a geometry as a child. The shader will read the geometry's `width` and `height` parameters to calculate cover bounds.
+
+```jsx
+import { extend } from '@react-three/fiber'
+import { Image } from '@react-three/drei'
+import { geometry } from 'maath'
+
+extend({ RoundedPlaneGeometry: geometry.RoundedPlaneGeometry })
+
+function RoundedImage() {
+  return (
+    <Image url="/photo.jpg">
+      <roundedPlaneGeometry args={[3, 2, 0.15]} />
+    </Image>
+  )
+}
+```
+
+<Tip>
+  To achieve a gallery-card reveal effect, animate `radius` from `0` to `0.1` and `zoom` from `1.1` to `1` on hover using a spring library such as `@react-spring/three`.
+</Tip>

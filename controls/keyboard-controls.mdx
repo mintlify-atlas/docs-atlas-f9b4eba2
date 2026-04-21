@@ -1,0 +1,178 @@
+---
+title: "KeyboardControls: Keyboard input state provider for R3F"
+description: "Zustand-backed keyboard input provider that maps keys to named actions and exposes reactive or transient state to descendants via useKeyboardControls."
+---
+
+`KeyboardControls` listens for `keydown` and `keyup` events and maintains a Zustand store that maps each named action to a boolean representing whether its bound keys are currently pressed. Any descendant component can read this state reactively through the `useKeyboardControls` hook, either by subscribing to a specific action or by accessing the raw subscribe/get API for transient, non-reactive reads in game loops.
+
+<Note>
+  `KeyboardControls` is a web-only component and requires a DOM environment for keyboard event listeners.
+</Note>
+
+## Props
+
+<ParamField path="map" type="KeyboardControlsEntry[]" required>
+  An array of action definitions. Each entry maps a named action to one or more key codes.
+
+  Each `KeyboardControlsEntry` has the following shape:
+
+  | Field | Type | Description |
+  |---|---|---|
+  | `name` | `string` | The action name used as the state key. |
+  | `keys` | `string[]` | Key identifiers — accepts either `event.key` values (e.g., `'ArrowUp'`) or `event.code` values (e.g., `'KeyW'`). |
+  | `up` | `boolean` | Whether to reset the action to `false` on `keyup`. Defaults to `true`. Set to `false` for toggle-style keys. |
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  Components that need access to keyboard state via `useKeyboardControls`.
+</ParamField>
+
+<ParamField path="onChange" type="(name: string, pressed: boolean, state: KeyboardControlsState) => void">
+  Optional callback fired whenever any action state changes. Receives the action name, the new pressed value, and the full current state.
+</ParamField>
+
+<ParamField path="domElement" type="HTMLElement">
+  Override the event source for keyboard listeners. Defaults to `window`.
+</ParamField>
+
+## useKeyboardControls hook
+
+The hook has two calling signatures depending on whether you pass a selector:
+
+**Reactive (with selector):** returns the current boolean value and re-renders when it changes.
+
+```tsx
+const isForward = useKeyboardControls<Controls>((state) => state.forward)
+```
+
+**Transient (no selector):** returns `[subscribe, get]` for use in `useEffect` and `useFrame` without causing re-renders.
+
+```tsx
+const [sub, get] = useKeyboardControls<Controls>()
+```
+
+## Setup
+
+Wrap your app or scene with `KeyboardControls` and define your action map. Using a TypeScript enum keeps action names type-safe throughout the app:
+
+```tsx
+import { useMemo } from 'react'
+import { KeyboardControls, KeyboardControlsEntry } from '@react-three/drei'
+
+enum Controls {
+  forward = 'forward',
+  back = 'back',
+  left = 'left',
+  right = 'right',
+  jump = 'jump',
+}
+
+export default function App() {
+  const map = useMemo<KeyboardControlsEntry<Controls>[]>(
+    () => [
+      { name: Controls.forward, keys: ['ArrowUp', 'KeyW'] },
+      { name: Controls.back,    keys: ['ArrowDown', 'KeyS'] },
+      { name: Controls.left,    keys: ['ArrowLeft', 'KeyA'] },
+      { name: Controls.right,   keys: ['ArrowRight', 'KeyD'] },
+      { name: Controls.jump,    keys: ['Space'] },
+    ],
+    []
+  )
+
+  return (
+    <KeyboardControls map={map}>
+      <Canvas>
+        <Player />
+      </Canvas>
+    </KeyboardControls>
+  )
+}
+```
+
+<Note>
+  Wrap `KeyboardControls` outside the `<Canvas>` element so that its context is available to both R3F components and React DOM components that may need keyboard state.
+</Note>
+
+## Reactive usage
+
+Subscribe to a specific action with a selector. The component re-renders whenever the selected value changes:
+
+```tsx
+import { useKeyboardControls } from '@react-three/drei'
+
+function JumpButton() {
+  const isJumping = useKeyboardControls<Controls>((state) => state.jump)
+
+  return (
+    <mesh scale={isJumping ? 1.2 : 1}>
+      <boxGeometry />
+      <meshStandardMaterial color={isJumping ? 'yellow' : 'gray'} />
+    </mesh>
+  )
+}
+```
+
+## Transient usage in a game loop
+
+For physics-driven movement, read key state inside `useFrame` to avoid per-keypress re-renders:
+
+```tsx
+import { useRef, useEffect } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useKeyboardControls } from '@react-three/drei'
+
+function Player() {
+  const meshRef = useRef()
+  const [sub, get] = useKeyboardControls<Controls>()
+
+  // Subscribe to forward key with a side-effect (no re-render)
+  useEffect(() => {
+    return sub(
+      (state) => state.jump,
+      (pressed) => {
+        if (pressed) console.log('jump triggered')
+      }
+    )
+  }, [sub])
+
+  useFrame((_, delta) => {
+    const { forward, back, left, right } = get()
+    const speed = 3 * delta
+
+    if (forward) meshRef.current.position.z -= speed
+    if (back)    meshRef.current.position.z += speed
+    if (left)    meshRef.current.position.x -= speed
+    if (right)   meshRef.current.position.x += speed
+  })
+
+  return (
+    <mesh ref={meshRef}>
+      <capsuleGeometry args={[0.3, 1, 4, 8]} />
+      <meshStandardMaterial color="steelblue" />
+    </mesh>
+  )
+}
+```
+
+<Tip>
+  Prefer the transient `[sub, get]` pattern inside `useFrame` for character movement. The reactive selector pattern is better suited for UI elements that should visually respond to input, such as highlighting a button when a key is held.
+</Tip>
+
+## onChange callback
+
+Use `onChange` for one-off side effects that should fire on every state change without subscribing inside a component:
+
+```tsx
+<KeyboardControls
+  map={map}
+  onChange={(name, pressed, state) => {
+    if (name === 'jump' && pressed) {
+      audioManager.play('jump')
+    }
+  }}
+>
+  <Canvas>
+    <Player />
+  </Canvas>
+</KeyboardControls>
+```

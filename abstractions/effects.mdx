@@ -1,0 +1,99 @@
+---
+title: "Effects: EffectComposer wrapper for post-processing"
+description: "Declarative abstraction around Three.js EffectComposer that prepends render and gamma correction passes, accepting any three-stdlib pass as JSX children."
+---
+
+`<Effects>` is a thin declarative wrapper around Three.js's `EffectComposer`. By default it prepends a `RenderPass` and a `GammaCorrectionShader` pass so you immediately get a correct output without any boilerplate. Children are cloned and automatically assigned to sequential `passes-N` attachment slots on the composer. You can only pass post-processing passes or effects as children.
+
+<Warning>
+  `<Effects>` is a lower-level alternative to `@react-three/postprocessing`. For complex effect pipelines, the dedicated post-processing library offers better performance and a higher-level API.
+</Warning>
+
+## Props
+
+<ParamField path="multisamping" type="number" default="8">
+  MSAA sample count for the render target. Set to `0` to disable multisampling.
+</ParamField>
+
+<ParamField path="renderIndex" type="number" default="1">
+  Priority index passed to `useFrame`. Controls when in the frame the composer renders relative to other `useFrame` subscribers.
+</ParamField>
+
+<ParamField path="disableRenderPass" type="boolean">
+  Skips prepending the default `RenderPass`. Use this when you want to manage the render pass yourself.
+</ParamField>
+
+<ParamField path="disableGamma" type="boolean">
+  Skips prepending the `GammaCorrectionShader` pass.
+</ParamField>
+
+<ParamField path="disableRender" type="boolean">
+  Prevents the composer from calling `render()` each frame. The composer is still set up; you must trigger renders manually.
+</ParamField>
+
+<ParamField path="depthBuffer" type="boolean" default="true">
+  Whether the render target includes a depth buffer.
+</ParamField>
+
+<ParamField path="stencilBuffer" type="boolean" default="false">
+  Whether the render target includes a stencil buffer.
+</ParamField>
+
+<ParamField path="anisotropy" type="number" default="1">
+  Anisotropy level for the render target texture.
+</ParamField>
+
+<ParamField path="colorSpace" type="ColorSpace">
+  Colour space of the render target texture. Only applied when `type` is `UnsignedByteType`.
+</ParamField>
+
+<ParamField path="type" type="TextureDataType">
+  Texture data type for the render target. Defaults to `HalfFloatType`.
+</ParamField>
+
+## Usage
+
+### Adding an SSAO pass
+
+```jsx
+import { extend } from '@react-three/fiber'
+import { Effects } from '@react-three/drei'
+import { SSAOPass } from 'three-stdlib'
+
+extend({ SSAOPass })
+
+function PostProcessing() {
+  return (
+    <Effects>
+      <sSAOPass args={[scene, camera, 512, 512]} kernelRadius={0.8} kernelSize={0} />
+    </Effects>
+  )
+}
+```
+
+### Custom render target settings
+
+```jsx
+import { UnsignedByteType, SRGBColorSpace } from 'three'
+import { Effects } from '@react-three/drei'
+
+<Effects
+  type={UnsignedByteType}
+  colorSpace={SRGBColorSpace}
+  multisamping={4}
+>
+  {/* passes */}
+</Effects>
+```
+
+### Disabling the default gamma pass
+
+```jsx
+<Effects disableGamma>
+  {/* manage gamma correction yourself */}
+</Effects>
+```
+
+<Tip>
+  The `multisamping` prop controls the `samples` property on the underlying `WebGLRenderTarget`. Setting it to `0` disables MSAA, which can improve performance on mobile devices.
+</Tip>

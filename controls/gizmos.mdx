@@ -1,0 +1,241 @@
+---
+title: "GizmoHelper, Grid, PivotControls, DragControls"
+description: "Viewport gizmos for 3D scenes: orientation cube, infinite grid, pivot transform handles, and drag-to-reposition controls."
+---
+
+drei provides several gizmo and in-scene manipulation helpers. This page covers `GizmoHelper`, `Grid`, `PivotControls`, and `DragControls`.
+
+## GizmoHelper
+
+`GizmoHelper` renders an orientation cube or axis indicator in a corner of the viewport. It reads the active controls from `state.controls` (set by `makeDefault` on `OrbitControls` or `CameraControls`) and tweens the camera when you click an axis face.
+
+```jsx
+import { GizmoHelper, GizmoViewport, OrbitControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <OrbitControls makeDefault />
+      <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+        <GizmoViewport axisColors={['red', 'green', 'blue']} labelColor="black" />
+      </GizmoHelper>
+    </>
+  )
+}
+```
+
+Use `GizmoViewcube` for a cube variant:
+
+```jsx
+import { GizmoHelper, GizmoViewcube } from '@react-three/drei'
+
+<GizmoHelper alignment="top-right" margin={[100, 100]}>
+  <GizmoViewcube />
+</GizmoHelper>
+```
+
+### GizmoHelper props
+
+<ParamField path="alignment" type="string">
+  Corner placement: `'top-left'`, `'top-right'`, `'bottom-right'`, `'bottom-left'`, `'bottom-center'`, `'center-right'`, `'center-left'`, `'top-center'`, `'center-center'`. Default: `'bottom-right'`.
+</ParamField>
+
+<ParamField path="margin" type="[number, number]">
+  Pixel margin from the corner `[x, y]`. Default: `[80, 80]`.
+</ParamField>
+
+<ParamField path="renderPriority" type="number">
+  Render priority for the HUD layer. Default: `1`.
+</ParamField>
+
+<ParamField path="onUpdate" type="() => void">
+  Called each frame during camera tween animation.
+</ParamField>
+
+---
+
+## Grid
+
+`Grid` renders an infinite or finite shader-based grid on a plane mesh. It uses a custom `shaderMaterial` with configurable cell and section lines, fading with distance.
+
+```jsx
+import { Grid } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Grid
+      args={[10, 10]}
+      cellSize={0.5}
+      cellThickness={0.5}
+      sectionSize={3}
+      sectionThickness={1}
+      sectionColor="#2080ff"
+      fadeDistance={30}
+    />
+  )
+}
+```
+
+### Props
+
+<ParamField path="args" type="[width, height]">
+  PlaneGeometry dimensions. Default: `[1, 1]`.
+</ParamField>
+
+<ParamField path="cellSize" type="number">
+  Size of each small cell. Default: `0.5`.
+</ParamField>
+
+<ParamField path="cellThickness" type="number">
+  Line thickness of cell lines. Default: `0.5`.
+</ParamField>
+
+<ParamField path="cellColor" type="ColorRepresentation">
+  Color of cell lines. Default: `'black'`.
+</ParamField>
+
+<ParamField path="sectionSize" type="number">
+  Size of major section lines. Default: `1`.
+</ParamField>
+
+<ParamField path="sectionThickness" type="number">
+  Line thickness of section lines. Default: `1`.
+</ParamField>
+
+<ParamField path="sectionColor" type="ColorRepresentation">
+  Color of section lines. Default: `'#2080ff'`.
+</ParamField>
+
+<ParamField path="followCamera" type="boolean">
+  Moves the grid with the camera so it appears infinite. Default: `false`.
+</ParamField>
+
+<ParamField path="infiniteGrid" type="boolean">
+  Extends grid to the horizon. Default: `false`.
+</ParamField>
+
+<ParamField path="fadeDistance" type="number">
+  Distance at which lines fade out. Default: `100`.
+</ParamField>
+
+<ParamField path="fadeStrength" type="number">
+  Strength of the fade. Default: `1`.
+</ParamField>
+
+---
+
+## PivotControls
+
+`PivotControls` renders an interactive pivot gizmo (translate/rotate/scale handles) around an object's bounding box. Unlike `TransformControls`, it doesn't require a Three.js object ref — it applies transforms via a matrix.
+
+```jsx
+import { PivotControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <PivotControls scale={75} fixed depthTest={false}>
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial />
+      </mesh>
+    </PivotControls>
+  )
+}
+```
+
+### Key props
+
+<ParamField path="scale" type="number">
+  Scale of the gizmo. When `fixed` is true, this is in pixels. Default: `1`.
+</ParamField>
+
+<ParamField path="fixed" type="boolean">
+  Keep the gizmo constant pixel size regardless of camera distance. Default: `false`.
+</ParamField>
+
+<ParamField path="anchor" type="[number, number, number]">
+  Bounding-box anchor point, each axis -1/0/+1. Centers the pivot on a face or corner.
+</ParamField>
+
+<ParamField path="autoTransform" type="boolean">
+  Automatically apply the local transform matrix on drag. Default: `true`.
+</ParamField>
+
+<ParamField path="matrix" type="Matrix4">
+  Initial matrix to control.
+</ParamField>
+
+<ParamField path="activeAxes" type="[boolean, boolean, boolean]">
+  Enable/disable individual axes. Default: `[true, true, true]`.
+</ParamField>
+
+<ParamField path="onDrag" type="(l, dl, w, dw) => void">
+  Called during drag with local matrix, delta local, world matrix, delta world.
+</ParamField>
+
+<ParamField path="onDragStart" type="() => void">
+  Called when drag begins.
+</ParamField>
+
+<ParamField path="onDragEnd" type="() => void">
+  Called when drag ends.
+</ParamField>
+
+---
+
+## DragControls
+
+`DragControls` makes any child object draggable in world space using pointer events and `@use-gesture/react`. It automatically disables `makeDefault` controls during drag.
+
+```jsx
+import { DragControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <DragControls>
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[0.5]} />
+        <meshStandardMaterial color="orange" />
+      </mesh>
+    </DragControls>
+  )
+}
+```
+
+### Props
+
+<ParamField path="autoTransform" type="boolean">
+  Automatically apply the world transform on drag. Default: `true`.
+</ParamField>
+
+<ParamField path="matrix" type="Matrix4">
+  Matrix to control instead of auto-transforming.
+</ParamField>
+
+<ParamField path="axisLock" type='"x" | "y" | "z"'>
+  Constrain drag to a single axis.
+</ParamField>
+
+<ParamField path="dragLimits" type="[[min,max]|undefined, ...]">
+  Per-axis drag limits: `[[xMin, xMax], [yMin, yMax], [zMin, zMax]]`.
+</ParamField>
+
+<ParamField path="onDrag" type="(localMatrix, deltaLocal, worldMatrix, deltaWorld) => void">
+  Called during drag with matrix information.
+</ParamField>
+
+<ParamField path="onDragStart" type="(origin: Vector3) => void">
+  Called on drag start with the initial world position.
+</ParamField>
+
+<ParamField path="onDragEnd" type="() => void">
+  Called when drag ends.
+</ParamField>
+
+<ParamField path="onHover" type="(hovering: boolean) => void">
+  Called when the pointer enters or leaves the object.
+</ParamField>
+
+<ParamField path="dragConfig" type="DragConfig">
+  Configuration object passed to `@use-gesture/react`'s `useGesture`.
+</ParamField>

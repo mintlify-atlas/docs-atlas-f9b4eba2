@@ -1,0 +1,137 @@
+---
+title: "Select 3D objects by click or box drag with Select"
+description: "Select tracks clicked or box-dragged Three.js objects in your scene and exposes the current selection to nested components through the useSelect hook."
+---
+
+`Select` wraps a group of objects and tracks which ones are currently selected. Clicking a child mesh selects it; clicking again deselects it. With `multiple` enabled, holding Shift adds objects to the selection. With both `box` and `multiple` enabled, Shift-dragging draws a marquee and selects all meshes inside it. The `useSelect` hook gives any nested component read access to the selection array without prop drilling.
+
+<Note>
+  `Select` is DOM-only. The box-select marquee is drawn as an absolutely positioned DOM element and requires a browser environment.
+</Note>
+
+## Usage
+
+```jsx
+import { Select, useSelect } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Select box multiple onChange={(selection) => console.log(selection)}>
+      <RedBox />
+      <BlueBox />
+    </Select>
+  )
+}
+
+function RedBox() {
+  const selected = useSelect()
+  const self = useRef()
+  const isSelected = selected.includes(self.current)
+
+  return (
+    <mesh ref={self}>
+      <boxGeometry />
+      <meshStandardMaterial color={isSelected ? 'hotpink' : 'red'} />
+    </mesh>
+  )
+}
+```
+
+## Props
+
+<ParamField path="multiple" type="boolean" default="false">
+  When `true`, holding Shift while clicking adds objects to the selection instead of replacing it.
+</ParamField>
+
+<ParamField path="box" type="boolean" default="false">
+  When `true` and `multiple` is also `true`, Shift-dragging over the canvas draws a selection box and selects all meshes inside it.
+</ParamField>
+
+<ParamField path="border" type="string" default="1px solid #55aaff">
+  CSS `border` style for the box-select marquee element.
+</ParamField>
+
+<ParamField path="backgroundColor" type="string" default="rgba(75, 160, 255, 0.1)">
+  CSS `background-color` for the box-select marquee element.
+</ParamField>
+
+<ParamField path="onChange" type="(selected: THREE.Object3D[]) => void">
+  Fired whenever the selection changes. Called on every pointer move during a box selection.
+</ParamField>
+
+<ParamField path="onChangePointerUp" type="(selected: THREE.Object3D[]) => void">
+  Fired when the selection changes and the pointer button is released. Useful when you only want to act on the final committed selection rather than intermediate states during box selection.
+</ParamField>
+
+<ParamField path="filter" type="(selected: THREE.Object3D[]) => THREE.Object3D[]">
+  A function applied to the raw intersection results before updating the selection. Use this to restrict selectable objects, deduplicate by parent, or remap the array in any way.
+</ParamField>
+
+All `THREE.Group` props are also forwarded.
+
+## useSelect
+
+```tsx
+function useSelect(): THREE.Object3D[]
+```
+
+Returns the current selection array from the nearest `Select` ancestor. Always returns an array — an empty one when nothing is selected.
+
+```jsx
+function Indicator() {
+  const selected = useSelect()
+
+  return (
+    <mesh visible={selected.length > 0} position={[0, 2, 0]}>
+      <sphereGeometry args={[0.1]} />
+      <meshBasicMaterial color="yellow" />
+    </mesh>
+  )
+}
+```
+
+## Examples
+
+<CodeGroup>
+
+```jsx Single select
+<Select onChange={(sel) => console.log('selected:', sel)}>
+  <mesh>
+    <boxGeometry />
+    <meshStandardMaterial />
+  </mesh>
+</Select>
+```
+
+```jsx Multi-select with box
+<Select
+  multiple
+  box
+  border="2px dashed #ff6600"
+  backgroundColor="rgba(255, 100, 0, 0.1)"
+  onChangePointerUp={(sel) => applyOperation(sel)}
+>
+  {objects.map((obj) => (
+    <SceneObject key={obj.id} data={obj} />
+  ))}
+</Select>
+```
+
+```jsx Filter to parent meshes only
+<Select
+  multiple
+  filter={(items) =>
+    items
+      .map((o) => o.parent)
+      .filter((p, i, arr) => p && arr.indexOf(p) === i)
+  }
+>
+  <ComplexModel />
+</Select>
+```
+
+</CodeGroup>
+
+<Tip>
+  When box select is active, `Select` temporarily disables the fiber event system and any camera controls to prevent conflicting pointer handlers during the drag. They are re-enabled automatically when the pointer is released.
+</Tip>

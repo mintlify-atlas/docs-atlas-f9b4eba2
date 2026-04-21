@@ -1,0 +1,189 @@
+---
+title: Stream video into Three.js textures with useVideoTexture
+description: A suspense-integrated hook that creates a Three.js VideoTexture from a URL, MediaStream, or HLS manifest, with autoplay, loop, and rVFC callback support.
+---
+
+`useVideoTexture` creates a `THREE.VideoTexture` from a video source and integrates it into React's Suspense system. The component tree is suspended until the video fires its unsuspend event (defaulting to `loadedmetadata`), at which point the texture is ready and the video begins playing automatically. It supports plain video URLs, `MediaStream` objects (for webcam or screen capture), and `.m3u8` HLS manifests via `hls.js`.
+
+<Note>
+  Components using `useVideoTexture` must be wrapped in a `<Suspense>` boundary. The hook suspends until the configured `unsuspend` event fires on the underlying video element.
+</Note>
+
+## `useVideoTexture` hook
+
+```ts
+useVideoTexture(
+  srcOrSrcObject: HTMLVideoElement['src'] | HTMLVideoElement['srcObject'],
+  options?: {
+    unsuspend?: keyof HTMLVideoElementEventMap
+    start?: boolean
+    hls?: HlsConfig
+    crossOrigin?: string
+    muted?: boolean
+    loop?: boolean
+    playsInline?: boolean
+    onVideoFrame?: VideoFrameRequestCallback
+    // ...any other HTMLVideoElement property
+  }
+): THREE.VideoTexture
+```
+
+<ParamField path="srcOrSrcObject" type="string | MediaStream | null" required>
+  A URL string (including `.m3u8` HLS manifests), or a `MediaStream` object from `getUserMedia` / `getDisplayMedia`.
+</ParamField>
+
+<ParamField path="unsuspend" type="keyof HTMLVideoElementEventMap" default="loadedmetadata">
+  The HTMLVideoElement event name that resolves the suspension. Change to `canplay` or `canplaythrough` to wait for more data before rendering.
+</ParamField>
+
+<ParamField path="start" type="boolean" default="true">
+  Automatically call `video.play()` once the suspension resolves.
+</ParamField>
+
+<ParamField path="hls" type="HlsConfig" default="{}">
+  Configuration object passed directly to the `hls.js` constructor. Only used when the source URL ends with `.m3u8`.
+</ParamField>
+
+<ParamField path="crossOrigin" type="string" default="anonymous">
+  The `crossOrigin` attribute set on the underlying `<video>` element.
+</ParamField>
+
+<ParamField path="muted" type="boolean" default="true">
+  Mute the video. Required for autoplay without user interaction in most browsers.
+</ParamField>
+
+<ParamField path="loop" type="boolean" default="true">
+  Loop the video continuously.
+</ParamField>
+
+<ParamField path="playsInline" type="boolean" default="true">
+  Set `playsInline` on the video element to prevent full-screen on iOS.
+</ParamField>
+
+<ParamField path="onVideoFrame" type="VideoFrameRequestCallback">
+  Callback invoked on each video frame via `requestVideoFrameCallback` (rVFC). Use this for frame-accurate video manipulation or synchronization.
+</ParamField>
+
+### Basic video texture
+
+```jsx
+import { useVideoTexture } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function VideoScreen() {
+  const texture = useVideoTexture('/video.mp4')
+  return (
+    <mesh>
+      <planeGeometry args={[16, 9]} />
+      <meshBasicMaterial map={texture} toneMapped={false} />
+    </mesh>
+  )
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={null}>
+      <VideoScreen />
+    </Suspense>
+  )
+}
+```
+
+### MediaStream (screen capture / webcam)
+
+`useVideoTexture` accepts a `MediaStream` from the browser's media APIs. Wrap the consumer component in its own `<Suspense>` so it can suspend individually until the stream is active.
+
+```jsx
+import { useState } from 'react'
+import { useVideoTexture } from '@react-three/drei'
+
+function VideoMaterial({ src }) {
+  const texture = useVideoTexture(src)
+  return <meshBasicMaterial map={texture} toneMapped={false} />
+}
+
+export default function ScreenCapture() {
+  const [stream, setStream] = useState(null)
+  return (
+    <mesh
+      onClick={async () =>
+        setStream(await navigator.mediaDevices.getDisplayMedia({ video: true }))
+      }
+    >
+      <planeGeometry args={[16, 9]} />
+      <React.Suspense fallback={<meshBasicMaterial wireframe />}>
+        {stream && <VideoMaterial src={stream} />}
+      </React.Suspense>
+    </mesh>
+  )
+}
+```
+
+### HLS streaming
+
+Any URL ending with `.m3u8` automatically uses `hls.js` for adaptive bitrate streaming. Pass `hls` options to tune the player.
+
+```jsx
+const texture = useVideoTexture('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', {
+  hls: { abrEwmaFastLive: 1.0, abrEwmaSlowLive: 3.0, enableWorker: true },
+})
+```
+
+### Frame callbacks with `requestVideoFrameCallback`
+
+Use `onVideoFrame` for per-frame callbacks, for example to synchronize subtitles or implement frame-accurate scrubbing.
+
+```jsx
+useVideoTexture('/video.mp4', {
+  onVideoFrame: (now, metadata) => {
+    console.log('Presented frame at:', metadata.mediaTime)
+  },
+})
+```
+
+## `VideoTexture` component
+
+`VideoTexture` is a declarative wrapper around `useVideoTexture`. The loaded texture is available both via a render-prop children function and through a forwarded `ref`.
+
+<ParamField path="src" type="string | MediaStream | null" required>
+  Mirrors the `srcOrSrcObject` parameter of `useVideoTexture`.
+</ParamField>
+
+<ParamField path="children" type="(texture: THREE.VideoTexture) => React.ReactNode">
+  Render prop receiving the loaded `THREE.VideoTexture`.
+</ParamField>
+
+All other `useVideoTexture` options are accepted as props.
+
+```jsx
+import { VideoTexture } from '@react-three/drei'
+import { Suspense, useRef } from 'react'
+
+// Via render prop
+function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <mesh>
+        <planeGeometry args={[16, 9]} />
+        <VideoTexture src="/video.mp4">
+          {(texture) => <meshBasicMaterial map={texture} toneMapped={false} />}
+        </VideoTexture>
+      </mesh>
+    </Suspense>
+  )
+}
+
+// Via ref
+function SceneWithRef() {
+  const textureRef = useRef()
+  return (
+    <Suspense fallback={null}>
+      <VideoTexture ref={textureRef} src="/video.mp4" />
+    </Suspense>
+  )
+}
+```
+
+<Warning>
+  On iOS/Safari (as of iOS 18.5), using `start: false` can result in a fully black texture. If you need to defer playback on iOS, play the video briefly and pause it immediately to force WebKit to upload pixels to the GPU.
+</Warning>

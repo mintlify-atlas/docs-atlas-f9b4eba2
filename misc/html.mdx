@@ -1,0 +1,188 @@
+---
+title: "Embed HTML elements in a Three.js scene with Html"
+description: "Html projects DOM content into a React Three Fiber scene, anchoring it to any 3D object with optional occlusion, transform mode, and distance scaling."
+---
+
+`Html` renders standard DOM content — buttons, labels, forms, or any React tree — and anchors it to a Three.js object. Every frame the component projects the object's 3D position onto the 2D canvas and moves the underlying DOM element to match. Optional occlusion modes let the HTML hide behind geometry, and transform mode uses CSS `matrix3d` so the content rotates and scales with the scene.
+
+<Note>
+  `Html` is DOM-only and requires a browser environment. It does not work in React Native or server-side rendering contexts.
+</Note>
+
+## Usage
+
+```jsx
+import { Html } from '@react-three/drei'
+
+function Label() {
+  return (
+    <mesh position={[0, 1, 0]}>
+      <boxGeometry />
+      <meshStandardMaterial />
+      <Html center>
+        <span style={{ color: 'white', background: '#000', padding: '4px 8px' }}>
+          Hello world
+        </span>
+      </Html>
+    </mesh>
+  )
+}
+```
+
+## Props
+
+<ParamField path="as" type="string" default="div">
+  The HTML tag used as the wrapping element. Accepts any valid HTML tag name.
+</ParamField>
+
+<ParamField path="wrapperClass" type="string">
+  Class name applied to the outer wrapper element that is appended to the DOM.
+</ParamField>
+
+<ParamField path="prepend" type="boolean" default="false">
+  When `true`, inserts the wrapper before other children of the target element instead of appending it.
+</ParamField>
+
+<ParamField path="center" type="boolean" default="false">
+  Applies `translate3d(-50%, -50%, 0)` so the element is centered on the 3D anchor point. Ignored in transform mode.
+</ParamField>
+
+<ParamField path="fullscreen" type="boolean" default="false">
+  Aligns the element to the upper-left corner and sizes it to fill the canvas. Ignored in transform mode.
+</ParamField>
+
+<ParamField path="distanceFactor" type="number">
+  When provided, scales the content by distance to a `PerspectiveCamera` or by zoom for an `OrthographicCamera`. Higher values make the element appear smaller with distance.
+</ParamField>
+
+<ParamField path="eps" type="number" default="0.001">
+  Threshold below which position and zoom changes are ignored to avoid unnecessary DOM updates.
+</ParamField>
+
+<ParamField path="portal" type="React.RefObject<HTMLElement>">
+  Mounts the wrapper inside the referenced element instead of the canvas parent.
+</ParamField>
+
+<ParamField path="transform" type="boolean" default="false">
+  When `true`, uses CSS `matrix3d` transforms so the content follows the object's full 3D transformation including rotation and scale.
+</ParamField>
+
+<ParamField path="sprite" type="boolean" default="false">
+  Makes the element always face the camera. Only has an effect when `transform` is also `true`.
+</ParamField>
+
+<ParamField path="zIndexRange" type="number[]" default="[16777271, 0]">
+  The z-index range used to sort overlapping HTML elements by depth. The first value is the maximum, the second is the minimum.
+</ParamField>
+
+<ParamField path="calculatePosition" type="(el: Object3D, camera: Camera, size: { width: number; height: number }) => number[]">
+  Override the default function that projects the 3D position to 2D canvas coordinates. Ignored in transform mode.
+</ParamField>
+
+<ParamField path="occlude" type="React.RefObject<Object3D>[] | boolean | 'raycast' | 'blending'">
+  Enables occlusion so the HTML hides behind geometry. Pass `true` or `'raycast'` to test against the whole scene, an array of refs to test against specific objects, or `'blending'` for z-index layering without raycasting.
+</ParamField>
+
+<ParamField path="onOcclude" type="(hidden: boolean) => void">
+  Called when visibility changes. When provided, you control the visual transition yourself. When omitted, the element's `display` is toggled automatically.
+</ParamField>
+
+<ParamField path="material" type="React.ReactNode">
+  Custom material for the occlusion backing plane. Useful for shadow casting or transparency. Has no effect when `occlude` is `'raycast'` or an array of refs.
+</ParamField>
+
+<ParamField path="geometry" type="React.ReactNode">
+  Custom geometry for the occlusion backing plane. Defaults to `<planeGeometry />`.
+</ParamField>
+
+<ParamField path="castShadow" type="boolean">
+  Makes the backing occlusion plane cast shadows. Requires a custom `material`.
+</ParamField>
+
+<ParamField path="receiveShadow" type="boolean">
+  Makes the backing occlusion plane receive shadows. Requires a custom `material`.
+</ParamField>
+
+<ParamField path="pointerEvents" type="string" default="auto">
+  CSS `pointer-events` value applied to the inner wrapper in transform mode. Use `'none'` to pass pointer events through to the canvas.
+</ParamField>
+
+All `THREE.Group` and `HTMLDivElement` props are also forwarded.
+
+## Occlusion
+
+Use `occlude` to hide the HTML when geometry covers the anchor point.
+
+```jsx
+<Html occlude>
+  <p>I hide behind meshes</p>
+</Html>
+```
+
+Control the transition yourself with `onOcclude`:
+
+```jsx
+const [hidden, setHidden] = useState(false)
+
+<Html
+  occlude
+  onOcclude={setHidden}
+  style={{
+    transition: 'opacity 0.3s',
+    opacity: hidden ? 0 : 1,
+  }}
+>
+  <p>Smooth fade</p>
+</Html>
+```
+
+### Blending occlusion
+
+`'blending'` mode uses z-index rather than raycasting. It makes the HTML appear as though it is part of the 3D scene without the overhead of per-frame intersection tests.
+
+```jsx
+<Html occlude="blending">
+  <p>Sorted by depth via z-index</p>
+</Html>
+```
+
+You can add material properties to the backing plane, including shadows:
+
+```jsx
+import { DoubleSide } from 'three'
+
+<Html
+  occlude
+  castShadow
+  receiveShadow
+  material={<meshPhysicalMaterial side={DoubleSide} opacity={0.1} transparent />}
+>
+  <p>Casts and receives shadows</p>
+</Html>
+```
+
+<Warning>
+  Shadows only work with a custom `material`. They will not work with `meshBasicMaterial` or the default `shaderMaterial`.
+</Warning>
+
+<Note>
+  Blending occlusion only correctly clips rectangular HTML elements by default. Use the `geometry` prop to supply a custom shape when your content is non-rectangular.
+</Note>
+
+## Transform mode
+
+Transform mode applies the full 3D transformation matrix to the HTML element, making it rotate and scale in perspective with the scene.
+
+```jsx
+<Html transform distanceFactor={10}>
+  <div style={{ width: 200, fontSize: 24 }}>3D label</div>
+</Html>
+```
+
+If the rendered HTML appears blurry on some devices, scale the parent down and the content up to increase sub-pixel precision:
+
+```jsx
+<Html transform scale={0.5}>
+  <div style={{ transform: 'scale(2)', width: 400 }}>Sharp text</div>
+</Html>
+```

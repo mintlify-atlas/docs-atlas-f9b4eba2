@@ -1,0 +1,146 @@
+---
+title: "PresentationControls: Drag-to-rotate 3D model presenter"
+description: "Drag-to-rotate controls that spin scene content rather than the camera, with polar and azimuth limits, zoom-on-drag, snap-back, and smooth damping."
+---
+
+`PresentationControls` wraps its children in a `<group>` and lets users rotate that group by dragging, without moving the camera. This makes it ideal for product showcases and interactive demos where you want the viewer to spin a model freely. The component supports configurable vertical and horizontal rotation limits, optional snap-back to a rest position, zoom-on-drag when the vertical limit is approached, and smooth damped easing throughout.
+
+<Note>
+  `PresentationControls` is a web-only component. It relies on `@use-gesture/react` for pointer event handling and requires a DOM environment.
+</Note>
+
+## Props
+
+<ParamField path="enabled" type="boolean" default="true">
+  When `false`, drag interactions are ignored and the group stays at its rest rotation.
+</ParamField>
+
+<ParamField path="global" type="boolean" default="false">
+  When `true`, drag events are captured from the entire DOM element rather than only from within the group's bounds.
+</ParamField>
+
+<ParamField path="cursor" type="boolean" default="true">
+  When `true`, toggles the CSS cursor to `grab` / `grabbing` during interaction.
+</ParamField>
+
+<ParamField path="speed" type="number" default="1">
+  Multiplier applied to drag delta. Increase for faster rotation; decrease for slower, more precise control.
+</ParamField>
+
+<ParamField path="zoom" type="number" default="1">
+  Scale factor applied to the group when the vertical drag position exceeds half of the polar maximum. Values greater than `1` zoom in.
+</ParamField>
+
+<ParamField path="rotation" type="[number, number, number]" default="[0, 0, 0]">
+  Initial rest rotation in radians as `[x, y, z]`. When `snap` is enabled the group returns to this rotation.
+</ParamField>
+
+<ParamField path="polar" type="[number, number]" default="[0, Math.PI / 2]">
+  Vertical (polar) rotation limits in radians as `[min, max]`, relative to `rotation[0]`.
+</ParamField>
+
+<ParamField path="azimuth" type="[number, number]" default="[-Infinity, Infinity]">
+  Horizontal (azimuth) rotation limits in radians as `[min, max]`, relative to `rotation[1]`. Use `[-Infinity, Infinity]` for unconstrained rotation.
+</ParamField>
+
+<ParamField path="damping" type="number" default="0.25">
+  Easing duration in seconds used for all transitions. Passed to `maath`'s `dampE` function.
+</ParamField>
+
+<ParamField path="snap" type="boolean | number">
+  When `true`, the group snaps back to `rotation` after the user releases the drag. When a number, that value is used as the snap `damping` duration instead of the main `damping` value.
+</ParamField>
+
+<ParamField path="domElement" type="HTMLElement">
+  Override the DOM element used for gesture event attachment. Defaults to the events target from R3F state.
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode">
+  Scene objects to wrap with drag-to-rotate behaviour.
+</ParamField>
+
+## Basic usage
+
+```jsx
+import { PresentationControls } from '@react-three/drei'
+
+export default function Scene() {
+  return (
+    <PresentationControls
+      speed={1.5}
+      polar={[-Math.PI / 4, Math.PI / 4]}
+      azimuth={[-Math.PI / 4, Math.PI / 4]}
+    >
+      <mesh>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="royalblue" />
+      </mesh>
+    </PresentationControls>
+  )
+}
+```
+
+## Snap-back on release
+
+Pass `snap` to return the model to its rest orientation after the user lets go. Provide a number to control how quickly it snaps back:
+
+```jsx
+<PresentationControls
+  snap={0.4}
+  rotation={[0.2, 0.4, 0]}
+  polar={[-Math.PI / 3, Math.PI / 3]}
+  azimuth={[-Math.PI, Math.PI]}
+>
+  <mesh>
+    <torusKnotGeometry />
+    <meshNormalMaterial />
+  </mesh>
+</PresentationControls>
+```
+
+## Global drag capture
+
+By default, drag only registers when the pointer starts inside the group. Set `global` to capture drag from anywhere on the canvas:
+
+```jsx
+<PresentationControls global speed={2}>
+  <mesh>
+    <sphereGeometry args={[1, 32, 32]} />
+    <meshStandardMaterial color="coral" />
+  </mesh>
+</PresentationControls>
+```
+
+## Full product showcase
+
+A common pattern for product pages: combine `snap`, `zoom`, and constrained limits to create a polished interactive viewer:
+
+```jsx
+import { PresentationControls, Environment, ContactShadows } from '@react-three/drei'
+
+export default function ProductViewer() {
+  return (
+    <>
+      <PresentationControls
+        global
+        snap={{ mass: 1, tension: 150 }}
+        zoom={0.8}
+        rotation={[0, -Math.PI / 4, 0]}
+        polar={[-Math.PI / 4, Math.PI / 4]}
+        azimuth={[-Math.PI / 4, Math.PI / 4]}
+      >
+        <mesh castShadow>
+          <cylinderGeometry args={[0.4, 0.6, 1.5, 64]} />
+          <meshStandardMaterial color="#8888ff" roughness={0.1} metalness={0.8} />
+        </mesh>
+      </PresentationControls>
+      <ContactShadows position={[0, -1, 0]} blur={2} />
+      <Environment preset="city" />
+    </>
+  )
+}
+```
+
+<Tip>
+  `PresentationControls` works well alongside `<Environment>` and `<ContactShadows>` for product visualisation. Since it does not touch the camera, you can combine it with `<OrbitControls>` or `<CameraControls>` on the outer scene if you need camera movement as well.
+</Tip>

@@ -1,0 +1,171 @@
+---
+title: 'Bounds: Auto-Fit Camera to Scene Content Bounding Box'
+description: 'Calculates a bounding box from children and animates the camera to frame it. Exposes an imperative API via useBounds for programmatic camera control.'
+---
+
+`Bounds` computes the axis-aligned bounding box of its children and animates the camera to frame the content. It provides an imperative API through the `useBounds` hook for manual refresh, camera movement, orientation changes, and near/far clipping. The animation is configurable via a custom interpolation function.
+
+<Note>
+  When using camera controls such as `OrbitControls`, add the `makeDefault` prop. Without `makeDefault`, `Bounds` cannot synchronize the controls target and the camera fitting will be incorrect.
+</Note>
+
+## Props
+
+<ParamField path="fit" type="boolean">
+  When `true`, fits the camera to the bounding box on first render and whenever `size` or observed inputs change.
+</ParamField>
+
+<ParamField path="clip" type="boolean">
+  When `true`, adjusts `camera.near` and `camera.far` based on the computed bounding distance.
+</ParamField>
+
+<ParamField path="observe" type="boolean">
+  When `true`, re-runs the fitting on every window resize.
+</ParamField>
+
+<ParamField path="margin" type="number" default="1.2">
+  Margin multiplier applied to the computed camera distance. Values greater than `1` add breathing room around the content.
+</ParamField>
+
+<ParamField path="maxDuration" type="number" default="1">
+  Duration in seconds of the camera fit animation.
+</ParamField>
+
+<ParamField path="interpolateFunc" type="(t: number) => number">
+  Custom easing function for the camera animation. Should map `[0, 1]` to `[0, 1]` monotonically. Defaults to an exponential ease-out.
+</ParamField>
+
+<ParamField path="onFit" type="(data: SizeProps) => void">
+  Callback fired after the camera fit animation completes. Receives `box`, `size`, `center`, and `distance`.
+</ParamField>
+
+## useBounds API
+
+Access the bounds context inside the `<Bounds>` tree using `useBounds()`. The returned `BoundsApi` exposes the following methods, all of which are chainable:
+
+| Method | Description |
+|--------|-------------|
+| `refresh(object?)` | Recalculates the bounding box from the group, an `Object3D`, or a `Box3`. Call this when content changes. |
+| `reset()` | Centers the camera to the current bounding box. |
+| `fit()` | Fits perspective cameras (same as `reset`) or adjusts orthographic camera zoom to match the box. |
+| `clip()` | Adjusts `camera.near` and `camera.far` to the bounding distance. |
+| `moveTo(position)` | Animates the camera to a specific position. |
+| `lookAt({ target, up? })` | Rotates the camera to look at a target position. |
+| `getSize()` | Returns `{ box, size, center, distance }` for the current bounding box. |
+
+## Usage
+
+### Basic auto-fit
+
+Fit the camera to the scene contents on first mount.
+
+```jsx
+import { Bounds, OrbitControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <Bounds fit clip observe margin={1.2}>
+        <mesh position={[0, 1, 0]}>
+          <boxGeometry args={[2, 2, 2]} />
+          <meshStandardMaterial color="tomato" />
+        </mesh>
+        <mesh position={[3, 0.5, 0]}>
+          <sphereGeometry args={[1.5]} />
+          <meshStandardMaterial color="royalblue" />
+        </mesh>
+      </Bounds>
+      <OrbitControls makeDefault />
+    </>
+  )
+}
+```
+
+### Programmatic camera control
+
+Use `useBounds` to manually trigger fitting after content loads.
+
+```jsx
+import { useEffect } from 'react'
+import { Bounds, useBounds } from '@react-three/drei'
+
+function SceneController() {
+  const bounds = useBounds()
+
+  useEffect(() => {
+    bounds.refresh().clip().fit()
+  }, [])
+
+  return null
+}
+
+function Scene() {
+  return (
+    <Bounds>
+      <SceneController />
+      <Model />
+    </Bounds>
+  )
+}
+```
+
+### Focus a specific object
+
+Refresh the bounds from a particular mesh or bounding box.
+
+```jsx
+import { useRef, useEffect } from 'react'
+import { Bounds, useBounds } from '@react-three/drei'
+
+function FocusedItem() {
+  const ref = useRef()
+  const bounds = useBounds()
+
+  useEffect(() => {
+    if (ref.current) {
+      bounds.refresh(ref.current).clip().fit()
+    }
+  }, [])
+
+  return (
+    <mesh ref={ref}>
+      <torusKnotGeometry />
+      <meshStandardMaterial />
+    </mesh>
+  )
+}
+```
+
+### Custom easing
+
+Use a custom interpolation function for a different animation feel.
+
+```jsx
+// Start smoothly, finish linearly
+const easeInOut = (t) => -t * t * t + 2 * t * t
+
+<Bounds fit clip margin={1.5} maxDuration={0.8} interpolateFunc={easeInOut}>
+  <Model />
+</Bounds>
+```
+
+### Move camera to a specific position
+
+Use `moveTo` and `lookAt` to animate to any view.
+
+```jsx
+function Scene() {
+  const bounds = useBounds()
+
+  return (
+    <mesh
+      onClick={() =>
+        bounds.moveTo([5, 3, 5]).lookAt({ target: [0, 0, 0] })
+      }
+    >
+      <boxGeometry />
+      <meshStandardMaterial />
+    </mesh>
+  )
+}
+```

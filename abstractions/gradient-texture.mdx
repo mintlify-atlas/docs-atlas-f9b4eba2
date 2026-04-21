@@ -1,0 +1,78 @@
+---
+title: "GradientTexture: canvas-based gradient for 3D meshes"
+description: "Creates a linear or radial gradient texture from color stops using a canvas element, ready to use as a map on any Three.js material."
+---
+
+`GradientTexture` generates a `THREE.Texture` from color stops drawn onto an HTML canvas. Attach it to any material's `map` prop to paint meshes with smooth gradients — useful for stylized backgrounds, sky gradients, or toon-shading effects.
+
+```jsx
+import { GradientTexture } from '@react-three/drei'
+
+function GradientSky() {
+  return (
+    <mesh scale={[100, 100, 100]}>
+      <sphereGeometry args={[1, 32, 32]} />
+      <meshBasicMaterial side={THREE.BackSide}>
+        <GradientTexture
+          stops={[0, 0.5, 1]}
+          colors={['#0f0c29', '#302b63', '#24243e']}
+          attach="map"
+        />
+      </meshBasicMaterial>
+    </mesh>
+  )
+}
+```
+
+## Props
+
+<ParamField path="stops" type="number[]" required>
+  Array of positions along the gradient (0–1).
+</ParamField>
+
+<ParamField path="colors" type="ColorRepresentation[]" required>
+  Array of colors corresponding to each stop.
+</ParamField>
+
+<ParamField path="size" type="number">
+  Canvas height in pixels (determines gradient resolution). Default: `1024`.
+</ParamField>
+
+<ParamField path="width" type="number">
+  Canvas width in pixels. Default: `16`.
+</ParamField>
+
+<ParamField path="type" type='"linear" | "radial"'>
+  Gradient type. Import `GradientType` enum for type-safe values. Default: `GradientType.Linear`.
+</ParamField>
+
+<ParamField path="innerCircleRadius" type="number">
+  Inner radius for radial gradients. Default: `0`.
+</ParamField>
+
+<ParamField path="outerCircleRadius" type='number | "auto"'>
+  Outer radius for radial gradients. Default: `'auto'` (fits canvas diagonal).
+</ParamField>
+
+<ParamField path="attach" type="string">
+  Attachment path on the parent material. Default: `'map'`.
+</ParamField>
+
+## Radial gradient example
+
+```jsx
+import { GradientTexture, GradientType } from '@react-three/drei'
+
+<mesh>
+  <planeGeometry args={[4, 4]} />
+  <meshBasicMaterial>
+    <GradientTexture
+      type={GradientType.Radial}
+      stops={[0, 0.5, 1]}
+      colors={['white', 'cyan', 'transparent']}
+      innerCircleRadius={0}
+      outerCircleRadius={0.5}
+    />
+  </meshBasicMaterial>
+</mesh>
+```

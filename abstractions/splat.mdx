@@ -1,0 +1,86 @@
+---
+title: "Splat: Stream and render 3D Gaussian splat files"
+description: "Renders streamed .splat Gaussian captures in React Three Fiber with per-frame depth sorting, multi-splat support, alphaTest and alphaHash transparency modes."
+---
+
+`<Splat>` renders 3D Gaussian splat captures (`.splat` files) inside a React Three Fiber scene. It streams the splat data in chunks via a background worker, sorts splats by depth every frame, and renders them with a custom instanced shader. Multiple `<Splat>` instances with the same `src` share a single loader, and each splat behaves like a regular `Object3D` so you can position, rotate, and scale it freely. The component is Suspense-compatible.
+
+<Warning>
+  Only `.splat` files are supported. The `.ply` format is not supported by this component.
+</Warning>
+
+## Props
+
+<ParamField path="src" type="string" required>
+  URL to a `.splat` file.
+</ParamField>
+
+<ParamField path="toneMapped" type="boolean" default="false">
+  Enables tone mapping on the splat material.
+</ParamField>
+
+<ParamField path="alphaTest" type="number" default="0">
+  Discards fragments with an alpha value below this threshold. Use a small value such as `0.1` when combining multiple splats to prevent depth sorting artefacts.
+</ParamField>
+
+<ParamField path="alphaHash" type="boolean" default="false">
+  Uses stochastic alpha hashing instead of blending for transparency. Eliminates depth sorting artefacts but introduces noise that should be removed with a TAA post-processing pass.
+</ParamField>
+
+<ParamField path="chunkSize" type="number" default="25000">
+  Number of splat records to process per streaming chunk. Lower values reduce worker pauses but increase overhead.
+</ParamField>
+
+All remaining props are forwarded to the underlying `<mesh>` element, so you can set `position`, `rotation`, `scale`, and other mesh props directly.
+
+## Usage
+
+### Single splat
+
+```jsx
+import { Splat } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <Splat src="https://huggingface.co/cakewalk/splat-data/resolve/main/nike.splat" />
+    </Suspense>
+  )
+}
+```
+
+### Multiple splats with alphaTest
+
+When combining multiple splat files, use `alphaTest` on all of them to avoid depth sorting issues. A small value like `0.1` works well for most captures.
+
+```jsx
+<Splat alphaTest={0.1} src="/scene/foreground.splat" />
+<Splat alphaTest={0.1} src="/scene/background.splat" />
+```
+
+### Using alphaHash for noise-free layering
+
+`alphaHash` avoids blending artefacts at the cost of visible noise. Pair it with a TAA pass in your post-processing pipeline to smooth the result.
+
+```jsx
+<Splat alphaHash src="/scene/subject.splat" />
+<Splat alphaHash src="/scene/environment.splat" />
+```
+
+### Positioned and scaled splat
+
+Splats are regular `Object3D` instances and accept all standard transform props.
+
+```jsx
+<Splat
+  src="/captures/room.splat"
+  position={[0, -1, 0]}
+  rotation={[0, Math.PI, 0]}
+  scale={0.5}
+/>
+```
+
+<Tip>
+  You can mix `alphaHash` and `alphaTest` splats in the same scene. `alphaHash` splats do not require consistent depth sorting with other splats since they write to the depth buffer, making them suitable for static background captures.
+</Tip>

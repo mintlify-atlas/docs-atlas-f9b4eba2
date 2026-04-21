@@ -1,0 +1,63 @@
+---
+title: "MeshDiscardMaterial: Invisible Mesh with Shadow Casting"
+description: "A shader material that discards all fragments, making the mesh invisible while preserving shadow casting and child object rendering."
+---
+
+`MeshDiscardMaterial` is a minimal shader material whose fragment shader unconditionally discards every pixel it processes. The mesh it is applied to becomes invisible in the final render, but because Three.js evaluates shadow maps and child object transforms independently of fragment visibility, the mesh continues to cast shadows and its children remain visible. This makes it useful for creating invisible shadow casters, wireframe-only displays, or objects that influence the scene without being seen directly.
+
+It accepts all props of `THREE.ShaderMaterial` and is a thin wrapper around a single-instruction `discard` fragment shader.
+
+## Usage
+
+### Invisible shadow caster
+
+```jsx
+import { MeshDiscardMaterial } from '@react-three/drei'
+
+function InvisibleShadowCaster() {
+  return (
+    <mesh castShadow position={[0, 2, 0]}>
+      <boxGeometry args={[1, 1, 1]} />
+      <MeshDiscardMaterial />
+    </mesh>
+  )
+}
+```
+
+### Edges-only display with visible shadow
+
+```jsx
+import { MeshDiscardMaterial, Edges } from '@react-three/drei'
+
+function WireframeWithShadow() {
+  return (
+    <mesh castShadow>
+      <torusKnotGeometry args={[1, 0.3, 128, 32]} />
+      <MeshDiscardMaterial />
+      {/* Edges renders as a child so it stays visible */}
+      <Edges color="white" />
+    </mesh>
+  )
+}
+```
+
+### Hiding a model while keeping its shadows
+
+```jsx
+function HiddenModel({ geometry }) {
+  return (
+    <mesh castShadow geometry={geometry}>
+      {/* The model geometry casts shadows but is not drawn */}
+      <MeshDiscardMaterial />
+    </mesh>
+  )
+}
+```
+
+<Note>
+  Setting `visible={false}` on a mesh also hides its children and prevents shadow casting. `MeshDiscardMaterial` only suppresses the mesh's own rendered pixels, leaving children and shadow rendering unaffected.
+</Note>
+
+<Tip>
+  `MeshDiscardMaterial` is also used internally by `MeshTransmissionMaterial` to temporarily hide the host mesh during its off-screen buffer render pass.
+</Tip>

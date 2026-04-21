@@ -1,0 +1,120 @@
+---
+title: "PerspectiveCamera: Scene camera for drei"
+description: "A responsive THREE.PerspectiveCamera wrapper that auto-updates aspect ratio, can become the scene default, and supports render-to-texture via FBO children."
+---
+
+`PerspectiveCamera` wraps Three.js's `THREE.PerspectiveCamera` with automatic aspect-ratio management tied to the canvas size. Pass `makeDefault` to replace the fiber default camera with this one, attach child meshes that follow along with the camera, or pass a render-function as `children` to film the scene into a framebuffer object (FBO) and use the resulting texture on any material.
+
+## Props
+
+<ParamField path="makeDefault" type="boolean">
+  Registers this camera as the fiber default. Fiber will render the scene from this camera's perspective. Restores the previous camera on unmount.
+</ParamField>
+
+<ParamField path="manual" type="boolean">
+  Disables automatic aspect-ratio updates. Use this when you need full control over the projection matrix. You are responsible for calling `camera.updateProjectionMatrix()` yourself.
+</ParamField>
+
+<ParamField path="children" type="ReactNode | ((texture: THREE.Texture) => ReactNode)">
+  When a plain React node, children are positioned in the same scene-space as the camera and follow its transform. When a function, the camera renders the scene into an FBO each frame and passes the resulting texture to the function — the returned nodes are hidden during the FBO render to avoid feedback artifacts.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  Number of frames to render into the FBO when `children` is a function. Set to a fixed number for a static capture, or leave as `Infinity` for a live render every frame.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="256">
+  Width and height in pixels of the internal FBO used when `children` is a render function.
+</ParamField>
+
+<ParamField path="envMap" type="THREE.Texture">
+  A texture temporarily applied as the scene background during the FBO render pass. Only used when `children` is a function.
+</ParamField>
+
+<Note>
+  All props from Three.js `PerspectiveCamera` — such as `fov`, `near`, `far`, and `position` — are forwarded directly to the underlying Three.js camera instance.
+</Note>
+
+## Usage
+
+### Default camera
+
+The simplest usage is to add `PerspectiveCamera` to your scene with `makeDefault`. Fiber will use it for all rendering, and it will keep its `aspect` in sync with the canvas dimensions automatically.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { PerspectiveCamera } from '@react-three/drei'
+
+export default function Scene() {
+  return (
+    <Canvas>
+      <PerspectiveCamera makeDefault position={[0, 0, 5]} fov={60} />
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial color="royalblue" />
+      </mesh>
+    </Canvas>
+  )
+}
+```
+
+### Children that follow the camera
+
+Any React node passed as `children` lives at the same position in the scene as the camera and moves with it — useful for attaching a torch, HUD geometry, or any object that should stay in camera-space.
+
+```jsx
+<PerspectiveCamera makeDefault position={[0, 2, 8]}>
+  <pointLight intensity={2} />
+</PerspectiveCamera>
+```
+
+### Manual aspect ratio
+
+When you need to drive the projection matrix yourself — for example in a split-screen setup — set `manual` and update the camera in your own `useFrame` or `onUpdate` callback.
+
+```jsx
+<PerspectiveCamera
+  manual
+  aspect={16 / 9}
+  fov={75}
+  onUpdate={(c) => c.updateProjectionMatrix()}
+/>
+```
+
+### Render to texture (FBO)
+
+Pass a function as `children` to render the scene from this camera's point of view into an FBO. The texture is passed into your function and can be applied to any material. Nodes returned from the function are hidden during the FBO render pass to prevent feedback loops.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { PerspectiveCamera } from '@react-three/drei'
+import { useMemo } from 'react'
+import * as THREE from 'three'
+
+export default function SecurityMonitor() {
+  const plane = useMemo(() => new THREE.PlaneGeometry(4, 3), [])
+
+  return (
+    <Canvas>
+      {/* Security camera positioned at the ceiling */}
+      <PerspectiveCamera position={[0, 8, 0]} rotation={[-Math.PI / 2, 0, 0]} fov={90}>
+        {(texture) => (
+          <mesh geometry={plane} position={[0, 0, -3]}>
+            <meshBasicMaterial map={texture} />
+          </mesh>
+        )}
+      </PerspectiveCamera>
+
+      {/* Scene content visible from both cameras */}
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry />
+        <meshStandardMaterial color="tomato" />
+      </mesh>
+    </Canvas>
+  )
+}
+```
+
+<Tip>
+  For a live security-camera or rear-view-mirror effect, leave `frames` at its default (`Infinity`). For a one-time baked reflection or lightmap capture, set `frames={1}` to render only a single frame and avoid the per-frame overhead.
+</Tip>

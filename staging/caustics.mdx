@@ -1,0 +1,127 @@
+---
+title: 'Caustics: Raymarched Refraction and Light Caustics'
+description: 'Projects raymarched caustic patterns from transmissive surfaces onto a ground plane. Supports front/back IOR, multiple light sources, and runtime mode.'
+---
+
+`Caustics` renders the swirls of refracted light that appear when light passes through transmissive objects such as glass or water. It uses a raymarching technique to project caustic patterns onto a Y-up catcher plane placed beneath your objects. The component renders once by default and incurs no ongoing GPU cost. For runtime caustics, set `frames={Infinity}` with a reduced resolution.
+
+<Note>
+  Use the `debug` prop to visualize the orthographic light camera frustum while staging your scene. The plane faces Y-up, matching `ContactShadows` and `AccumulativeShadows`.
+</Note>
+
+## Props
+
+<ParamField path="frames" type="number" default="1">
+  How many frames the caustics render. Set to `Infinity` for live, animated caustics.
+</ParamField>
+
+<ParamField path="debug" type="boolean" default="false">
+  Shows a `CameraHelper` for the internal orthographic light camera to assist with scene staging.
+</ParamField>
+
+<ParamField path="causticsOnly" type="boolean" required>
+  When `true`, renders only the caustic projection and hides the child geometry. Use this to layer multiple `Caustics` components from different angles without duplicating visible models.
+</ParamField>
+
+<ParamField path="backside" type="boolean" required>
+  Enables back-face normal rendering. Necessary for solid glass objects where light refracts through both surfaces. Activates the `backsideIOR` prop.
+</ParamField>
+
+<ParamField path="ior" type="number" default="1.1">
+  Index of refraction for front faces. Common values: glass ≈ 1.5, water ≈ 1.33, diamond ≈ 2.42.
+</ParamField>
+
+<ParamField path="backsideIOR" type="number" default="1.1">
+  Index of refraction for back faces. Only used when `backside` is enabled.
+</ParamField>
+
+<ParamField path="worldRadius" type="number" default="0.3125">
+  Texel world-space radius used in the caustic raymarching. Controls how broad each refracted ray spreads. Fine-tune this per model.
+</ParamField>
+
+<ParamField path="intensity" type="number" default="0.05">
+  Brightness of the projected caustic pattern.
+</ParamField>
+
+<ParamField path="color" type="ReactThreeFiber.Color" default="'white'">
+  Tint color of the caustic projection.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="2048">
+  Resolution of the caustic render buffers. Higher values give sharper caustics at a greater GPU cost.
+</ParamField>
+
+<ParamField path="lightSource" type="[x: number, y: number, z: number] | React.RefObject<THREE.Object3D>" default="[5, 5, 5]">
+  Position of the virtual light source. Accepts a static position tuple or a ref to any `THREE.Object3D` for animated light sources.
+</ParamField>
+
+## Usage
+
+### Static caustics from a glass object
+
+```jsx
+import { Caustics } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Caustics
+      backside
+      lightSource={[2.5, 5, -2.5]}
+      intensity={0.08}
+      worldRadius={0.2}
+    >
+      <WineGlass />
+    </Caustics>
+  )
+}
+```
+
+### Multiple caustic passes for multiple light sources
+
+Use `causticsOnly` on the second instance to avoid rendering the model twice visually while still computing caustics from a second direction.
+
+```jsx
+<Caustics backside lightSource={[2.5, 5, -2.5]}>
+  <WineGlass />
+</Caustics>
+<Caustics
+  causticsOnly
+  backside
+  lightSource={[-2.5, 5, 2.5]}
+  ior={0.79}
+  worldRadius={0.0124}
+>
+  <WineGlass />
+</Caustics>
+```
+
+### Runtime caustics with an animated light
+
+Pass a ref to an `object3d` to move the light source at runtime.
+
+```jsx
+import { useRef } from 'react'
+import { Caustics } from '@react-three/drei'
+
+function Scene() {
+  const lightSource = useRef()
+
+  return (
+    <>
+      <Caustics
+        frames={Infinity}
+        resolution={512}
+        lightSource={lightSource}
+        intensity={0.1}
+      >
+        <GlassSphere />
+      </Caustics>
+      <object3d ref={lightSource} position={[2.5, 5, -2.5]} />
+    </>
+  )
+}
+```
+
+<Tip>
+  Use [leva](https://github.com/pmndrs/leva) to tweak `intensity`, `worldRadius`, `ior`, and `backsideIOR` interactively. Their ideal values vary significantly between models and cannot be predicted without visual feedback.
+</Tip>

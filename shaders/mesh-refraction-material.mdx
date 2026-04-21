@@ -1,0 +1,114 @@
+---
+title: "MeshRefractionMaterial: Glass and Diamond Refraction Shader"
+description: "Physically accurate refraction for glass and gem geometry using BVH ray casting, IOR, Fresnel, and optional chromatic aberration with env map support."
+---
+
+`MeshRefractionMaterial` is a custom shader material that simulates light bending through transparent solid geometry such as glass or cut diamonds. It uses a BVH (Bounding Volume Hierarchy) structure built from the mesh's own geometry to ray-cast refracted rays through the object, then samples an environment map at the exit points. The result is a convincing internal caustic and refraction effect that responds to the geometry's shape. Chromatic aberration is optionally available, splitting light into RGB channels at different refraction angles.
+
+## Props
+
+<ParamField path="envMap" type="THREE.CubeTexture | THREE.Texture" required>
+  The environment map to sample at refracted ray exit points. Accepts both `CubeTexture` and equirectangular `Texture` formats. This is the only required prop.
+</ParamField>
+
+<ParamField path="bounces" type="number" default="2">
+  Number of ray-cast bounces through the geometry. More bounces produce more accurate internal reflections but are more expensive to compute.
+</ParamField>
+
+<ParamField path="ior" type="number" default="2.4">
+  Index of refraction. Glass is approximately `1.5`; diamond is approximately `2.4`. Higher values bend light more sharply.
+</ParamField>
+
+<ParamField path="fresnel" type="number" default="0">
+  Fresnel strip-light intensity. Adds edge brightening to simulate the glancing-angle reflectivity of real glass surfaces.
+</ParamField>
+
+<ParamField path="aberrationStrength" type="number" default="0">
+  Intensity of chromatic aberration, which splits the refracted image into red, green, and blue channels at slightly different angles. Values above `0.05` become noticeably expensive.
+</ParamField>
+
+<ParamField path="color" type="ReactThreeFiber.Color" default="white">
+  Tint color multiplied over the final refracted output. Useful for colored glass.
+</ParamField>
+
+<ParamField path="fastChroma" type="boolean" default="true">
+  When `true`, uses fewer ray casts for chromatic aberration, sacrificing some physical accuracy for better performance. Only relevant when `aberrationStrength > 0`.
+</ParamField>
+
+## Usage
+
+### Diamond with environment map
+
+```jsx
+import { useLoader } from '@react-three/fiber'
+import { MeshRefractionMaterial } from '@react-three/drei'
+import { RGBELoader } from 'three-stdlib'
+
+function Diamond({ geometry }) {
+  const texture = useLoader(RGBELoader, '/textures/royal_esplanade_1k.hdr')
+
+  return (
+    <mesh geometry={geometry}>
+      <MeshRefractionMaterial
+        envMap={texture}
+        ior={2.4}
+        bounces={3}
+        fresnel={0.5}
+      />
+    </mesh>
+  )
+}
+```
+
+### Glass gem reflecting live scene objects
+
+Pair with `CubeCamera` so the material can see other objects in the scene:
+
+```jsx
+import { CubeCamera, MeshRefractionMaterial } from '@react-three/drei'
+
+function GlassGem({ geometry }) {
+  return (
+    <CubeCamera resolution={256} frames={1}>
+      {(texture) => (
+        <mesh geometry={geometry}>
+          <MeshRefractionMaterial
+            envMap={texture}
+            ior={1.5}
+            bounces={2}
+            color="#aaddff"
+          />
+        </mesh>
+      )}
+    </CubeCamera>
+  )
+}
+```
+
+### Colored glass with chromatic aberration
+
+```jsx
+<mesh geometry={gemGeometry}>
+  <MeshRefractionMaterial
+    envMap={envTexture}
+    ior={1.8}
+    bounces={2}
+    aberrationStrength={0.03}
+    fastChroma={true}
+    color="#ff8844"
+    fresnel={0.3}
+  />
+</mesh>
+```
+
+<Note>
+  `MeshRefractionMaterial` automatically builds a `MeshBVH` from the parent mesh's geometry on mount. If the geometry changes at runtime, you will need to remount the material to rebuild the BVH.
+</Note>
+
+<Warning>
+  The `bounces` prop directly multiplies the number of ray-cast operations per fragment. Values above `4` will significantly impact GPU performance, especially at high screen resolutions.
+</Warning>
+
+<Tip>
+  For static environment maps (not reflecting live scene objects), pass a preloaded HDR texture directly. Use `CubeCamera` only when you need the refracted rays to pick up dynamic scene content.
+</Tip>

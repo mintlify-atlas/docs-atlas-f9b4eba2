@@ -1,0 +1,48 @@
+---
+title: "ComputedAttribute: add custom BufferAttributes to geometry"
+description: "Declaratively compute and attach a BufferAttribute to a BufferGeometry by providing a compute function. Used as a child of geometry elements."
+---
+
+`ComputedAttribute` is used as a child of a `<bufferGeometry>` or any geometry element. It calls your `compute` function with the parent geometry and attaches the returned `BufferAttribute` under the given `name`.
+
+```jsx
+import { ComputedAttribute } from '@react-three/drei'
+import { BufferAttribute } from 'three'
+
+function MeshWithRandomColors() {
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 32, 32]}>
+        <ComputedAttribute
+          name="color"
+          compute={(geometry) => {
+            const count = geometry.attributes.position.count
+            const colors = new Float32Array(count * 3)
+            for (let i = 0; i < count * 3; i++) {
+              colors[i] = Math.random()
+            }
+            return new BufferAttribute(colors, 3)
+          }}
+        />
+      </sphereGeometry>
+      <meshStandardMaterial vertexColors />
+    </mesh>
+  )
+}
+```
+
+## Props
+
+<ParamField path="name" type="string" required>
+  The attribute name to attach to the geometry (e.g., `'color'`, `'uv2'`).
+</ParamField>
+
+<ParamField path="compute" type="(geometry: BufferGeometry) => BufferAttribute" required>
+  A function that receives the parent `BufferGeometry` and returns the computed `BufferAttribute`.
+</ParamField>
+
+All other `bufferAttribute` props are forwarded.
+
+<Note>
+  `ComputedAttribute` must be a direct child of a geometry element. It attaches the result of `compute` to the geometry on mount.
+</Note>

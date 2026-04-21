@@ -1,0 +1,124 @@
+---
+title: 'Sparkles: Floating Glowing Shader-Driven Particles'
+description: 'Shader-driven floating glowing particles. Per-particle control over size, speed, opacity, color, and noise movement via scalar values or Float32Arrays.'
+---
+
+`Sparkles` renders a set of glowing point particles using a custom `ShaderMaterial`. Each particle floats independently, driven by sine-wave motion with per-particle noise, speed, and opacity attributes. All visual parameters accept either a uniform scalar value or a `Float32Array` for per-particle variation. The component also accepts custom shader children for complete material control.
+
+## Props
+
+<ParamField path="count" type="number" default="100">
+  Number of particles to render.
+</ParamField>
+
+<ParamField path="speed" type="number | Float32Array" default="1">
+  Animation speed for particle movement. Pass a `Float32Array` of length `count` for per-particle speeds.
+</ParamField>
+
+<ParamField path="opacity" type="number | Float32Array" default="1">
+  Opacity of particles. Pass a `Float32Array` for per-particle values.
+</ParamField>
+
+<ParamField path="color" type="THREE.ColorRepresentation | Float32Array">
+  Particle color. Accepts any Three.js color representation or a `Float32Array` of RGB triplets (length `count * 3`).
+</ParamField>
+
+<ParamField path="size" type="number | Float32Array">
+  Particle size. Defaults to a random value between 0 and 1 for each particle. Pass a `Float32Array` for per-particle sizes.
+</ParamField>
+
+<ParamField path="scale" type="number | [number, number, number] | THREE.Vector3" default="1">
+  The spatial volume the particles are spread across. A single number sets a uniform cube; an array or vector sets independent axis extents.
+</ParamField>
+
+<ParamField path="noise" type="number | [number, number, number] | THREE.Vector3 | Float32Array" default="1">
+  Movement noise factor applied to the sine-wave animation. Higher values produce more erratic motion. Pass a `Float32Array` of length `count * 3` for per-axis, per-particle noise.
+</ParamField>
+
+## Custom shader attributes and uniforms
+
+When providing a custom shader as a child, the following attributes and uniforms are available:
+
+```glsl
+attribute float size;
+attribute float speed;
+attribute float opacity;
+attribute vec3 noise;
+attribute vec3 color;
+```
+
+```json
+{ "time": 0, "pixelRatio": 1 }
+```
+
+## Usage
+
+### Basic sparkles
+
+Uniform glowing particles spread across a unit cube.
+
+```jsx
+import { Sparkles } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Sparkles count={100} scale={2} size={2} speed={0.4} />
+  )
+}
+```
+
+### Colored sparkles on a model
+
+Attach sparkles to a mesh to create a magical aura effect.
+
+```jsx
+import { Sparkles } from '@react-three/drei'
+
+function MagicSword() {
+  return (
+    <group>
+      <mesh>
+        <boxGeometry args={[0.1, 2, 0.1]} />
+        <meshStandardMaterial color="silver" metalness={0.9} roughness={0.1} />
+      </mesh>
+      <Sparkles
+        count={50}
+        scale={[0.3, 2, 0.3]}
+        size={1.5}
+        speed={0.5}
+        color="gold"
+        opacity={0.8}
+      />
+    </group>
+  )
+}
+```
+
+### Per-particle variation
+
+Use `Float32Array` to give each particle a unique size and speed.
+
+```jsx
+import * as THREE from 'three'
+import { Sparkles } from '@react-three/drei'
+
+const COUNT = 200
+const sizes = Float32Array.from({ length: COUNT }, () => Math.random() * 3)
+const speeds = Float32Array.from({ length: COUNT }, () => 0.2 + Math.random() * 1.5)
+
+function Scene() {
+  return (
+    <Sparkles
+      count={COUNT}
+      size={sizes}
+      speed={speeds}
+      scale={4}
+      color="white"
+    />
+  )
+}
+```
+
+<Tip>
+  `Sparkles` re-creates particle positions whenever `count` or `scale` changes. Keep these values stable or use `useMemo` to avoid unnecessary allocations.
+</Tip>

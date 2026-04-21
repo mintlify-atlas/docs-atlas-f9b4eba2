@@ -1,0 +1,91 @@
+---
+title: 'Stars: Animated Shader-Based Blinking Starfield'
+description: 'Adds a blinking shader-driven starfield to your scene. Configure star count, radius, depth, saturation, soft fade, and animation speed independently.'
+---
+
+`Stars` renders a large-scale point-based starfield using a custom `ShaderMaterial`. Stars are distributed in a spherical shell defined by `radius` and `depth`, with individual sizes randomised by the `factor` param. The shader drives a time-based twinkling animation, and optionally fades stars at their edges for a softer look.
+
+## Props
+
+<ParamField path="radius" type="number" default="100">
+  Outer radius of the star sphere. Stars are scattered between `radius` and `radius - depth`.
+</ParamField>
+
+<ParamField path="depth" type="number" default="50">
+  Thickness of the star layer. Stars are spread across this depth range inside the sphere.
+</ParamField>
+
+<ParamField path="count" type="number" default="5000">
+  Total number of star points rendered.
+</ParamField>
+
+<ParamField path="factor" type="number" default="4">
+  Size multiplier for individual stars. Each star receives a random size between `0.5 * factor` and `1.0 * factor`.
+</ParamField>
+
+<ParamField path="saturation" type="number" default="0">
+  Color saturation of stars. `0` produces white stars. Higher values tint stars with a hue gradient across the field.
+</ParamField>
+
+<ParamField path="fade" type="boolean" default="false">
+  When `true`, applies a soft circular fade to each star point so they appear as soft discs rather than hard pixels.
+</ParamField>
+
+<ParamField path="speed" type="number" default="1">
+  Animation speed of the twinkling effect. Set to `0` to disable animation.
+</ParamField>
+
+## Usage
+
+### Default starfield
+
+A basic starfield that works well for dark space scenes.
+
+```jsx
+import { Stars } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <color attach="background" args={['black']} />
+      <Stars />
+    </>
+  )
+}
+```
+
+### Dense, soft stars
+
+Increase the star count, enable fading, and slow the animation for a calmer night sky.
+
+```jsx
+<Stars
+  radius={200}
+  depth={60}
+  count={10000}
+  factor={3}
+  saturation={0.3}
+  fade
+  speed={0.5}
+/>
+```
+
+### Colorful galaxy
+
+Set `saturation` above `0` to produce a rainbow of star colors across the sphere.
+
+```jsx
+<Stars
+  radius={100}
+  depth={50}
+  count={8000}
+  factor={5}
+  saturation={1}
+  fade
+  speed={1}
+/>
+```
+
+<Tip>
+  Keep `count` under 15,000 for smooth performance on mobile devices. The geometry is rebuilt when `count`, `depth`, `factor`, `radius`, or `saturation` changes, so avoid updating these every frame.
+</Tip>

@@ -1,0 +1,181 @@
+---
+title: "ScrollControls: Scroll-driven 3D scene animations for R3F"
+description: "Creates a DOM scroll container that drives 3D and HTML content animations via the useScroll hook, with support for paging, damping, and infinite scroll."
+---
+
+`ScrollControls` places a full-size HTML scroll container in front of the canvas and exposes the current scroll position to any descendant through the `useScroll` hook. This lets you synchronise 3D object positions, rotations, and material properties directly to the user's scroll progress without any external animation library. The `<Scroll>` sub-component accepts both Three.js scene content and DOM HTML, and the hook provides damped `offset` and `delta` values along with range-mapping helpers.
+
+<Note>
+  `ScrollControls` and `Scroll` are web-only components and require a DOM environment. They will not work in a server-side rendering context without a DOM shim.
+</Note>
+
+## Props
+
+<ParamField path="pages" type="number" default="1">
+  Number of scroll pages. Each page equals 100% of the container height (or width when `horizontal` is `true`).
+</ParamField>
+
+<ParamField path="damping" type="number" default="0.25">
+  Friction applied to the scroll offset, expressed in seconds. Smaller values feel more responsive; larger values feel heavier.
+</ParamField>
+
+<ParamField path="distance" type="number" default="1">
+  A multiplier that stretches the total scrollable length without adding pages. Useful for slowing down the scene relative to the scroll bar.
+</ParamField>
+
+<ParamField path="maxSpeed" type="number" default="Infinity">
+  Clamps the maximum scroll speed in units per second. Helpful when pages are far apart and damping alone would cause the camera to move too fast.
+</ParamField>
+
+<ParamField path="horizontal" type="boolean" default="false">
+  When `true`, the scroll container scrolls horizontally instead of vertically.
+</ParamField>
+
+<ParamField path="infinite" type="boolean" default="false">
+  Enables experimental infinite scrolling. When the user reaches either end, the scroll position wraps around.
+</ParamField>
+
+<ParamField path="enabled" type="boolean" default="true">
+  When `false`, scroll events are ignored and the offset stops updating.
+</ParamField>
+
+<ParamField path="prepend" type="boolean" default="false">
+  When `true`, inserts the scroll container before the canvas in the DOM instead of after it.
+</ParamField>
+
+<ParamField path="eps" type="number" default="0.00001">
+  Convergence threshold for the damping calculation. The frame loop stops invalidating once `delta` falls below this value.
+</ParamField>
+
+<ParamField path="style" type="React.CSSProperties">
+  Additional inline styles applied to the outer scroll container element.
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode" required>
+  Scene content and `<Scroll>` components.
+</ParamField>
+
+## useScroll hook
+
+The `useScroll` hook returns a `ScrollControlsState` object with the following fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `offset` | `number` | Current scroll position between `0` and `1`, damped. |
+| `delta` | `number` | Absolute change in `offset` per frame, damped. |
+| `pages` | `number` | The value of the `pages` prop. |
+| `horizontal` | `boolean \| undefined` | Whether horizontal scroll is active. |
+| `range(from, distance, margin?)` | `number` | Returns `0–1` while scroll is within `[from, from + distance]`. |
+| `curve(from, distance, margin?)` | `number` | Returns `0–1–0` (sine curve) within the same range. |
+| `visible(from, distance, margin?)` | `boolean` | Returns `true` while scroll is inside the range. |
+
+## Basic usage
+
+Wrap your canvas content in `<ScrollControls>` and place scrollable objects inside `<Scroll>`:
+
+```jsx
+import { ScrollControls, Scroll, useScroll } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
+import { useRef } from 'react'
+
+function AnimatedBox() {
+  const ref = useRef()
+  const data = useScroll()
+
+  useFrame(() => {
+    // Rotate through the first third of scroll
+    ref.current.rotation.y = data.range(0, 1 / 3) * Math.PI * 2
+  })
+
+  return (
+    <mesh ref={ref}>
+      <boxGeometry />
+      <meshStandardMaterial color="orange" />
+    </mesh>
+  )
+}
+
+export default function App() {
+  return (
+    <ScrollControls pages={3} damping={0.1}>
+      {/* This component is NOT scrolled but can still call useScroll */}
+      <AnimatedBox />
+
+      <Scroll>
+        {/* These meshes move with scroll */}
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry />
+          <meshStandardMaterial color="hotpink" />
+        </mesh>
+      </Scroll>
+
+      <Scroll html>
+        {/* DOM content that scrolls with the canvas */}
+        <h1 style={{ position: 'absolute', top: '10vh', left: '10vw' }}>
+          Page one
+        </h1>
+        <h1 style={{ position: 'absolute', top: '110vh', left: '10vw' }}>
+          Page two
+        </h1>
+        <h1 style={{ position: 'absolute', top: '210vh', left: '10vw' }}>
+          Page three
+        </h1>
+      </Scroll>
+    </ScrollControls>
+  )
+}
+```
+
+## Range mapping helpers
+
+The `range`, `curve`, and `visible` helpers make it straightforward to animate values relative to specific sections of the scroll:
+
+```jsx
+function Section() {
+  const data = useScroll()
+  const meshRef = useRef()
+
+  useFrame(() => {
+    // 0→1 as scroll moves from 0% to 33%
+    const fadeIn = data.range(0, 1 / 3)
+
+    // 0→1→0 (sine arc) between 33% and 66%
+    const peak = data.curve(1 / 3, 1 / 3)
+
+    // 0→1 from 66% to 100%, with 5% margin on each side
+    const fadeOut = data.range(2 / 3, 1 / 3, 0.05)
+
+    // boolean: true only when scroll is between 33% and 66%
+    const inView = data.visible(1 / 3, 1 / 3)
+
+    meshRef.current.material.opacity = fadeIn * peak
+    meshRef.current.visible = inView
+  })
+
+  return (
+    <mesh ref={meshRef}>
+      <planeGeometry args={[2, 2]} />
+      <meshStandardMaterial transparent />
+    </mesh>
+  )
+}
+```
+
+## Horizontal scroll
+
+Pass `horizontal` to make the scroll axis run left-to-right:
+
+```jsx
+<ScrollControls pages={4} horizontal damping={0.2}>
+  <Scroll>
+    <mesh position={[0, 0, 0]}><boxGeometry /></mesh>
+    <mesh position={[5, 0, 0]}><boxGeometry /></mesh>
+    <mesh position={[10, 0, 0]}><boxGeometry /></mesh>
+    <mesh position={[15, 0, 0]}><boxGeometry /></mesh>
+  </Scroll>
+</ScrollControls>
+```
+
+<Tip>
+  When combining `<Scroll>` Three.js content with `<Scroll html>` DOM content on the same page, position the HTML elements using absolute positioning (`top`, `left`) in viewport units (`vh`, `vw`) so they align with their 3D counterparts.
+</Tip>

@@ -1,0 +1,103 @@
+---
+title: Load FBX 3D models with useFBX and Fbx in React Three Fiber
+description: A suspense-based hook and component for loading FBX models in React Three Fiber using FBXLoader from three-stdlib, returning a Three.js Group.
+---
+
+`useFBX` wraps R3F's `useLoader` with `FBXLoader` from `three-stdlib`, suspending the component tree while the FBX file is fetched and parsed. The hook returns a Three.js `Group` representing the full model hierarchy. The companion `Fbx` component renders the first child of the loaded group via the `Clone` helper, making it easy to place FBX assets in a scene without manual wiring.
+
+<Note>
+  Components using `useFBX` must be wrapped in a `<Suspense>` boundary. The hook suspends until the FBX file is fully loaded and parsed.
+</Note>
+
+## `useFBX` hook
+
+```ts
+useFBX(path: string): Group
+```
+
+<ParamField path="path" type="string" required>
+  URL of the `.fbx` file to load. Returns a Three.js `Group` containing the full model hierarchy.
+</ParamField>
+
+### Basic usage
+
+```jsx
+import { useFBX } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function Character() {
+  const fbx = useFBX('/models/character.fbx')
+  return <primitive object={fbx} />
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={null}>
+      <Character />
+    </Suspense>
+  )
+}
+```
+
+### Accessing animations
+
+FBX files often bundle animation clips. These are available on the returned `Group` as `fbx.animations`.
+
+```jsx
+import { useFBX } from '@react-three/drei'
+import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+
+function AnimatedModel() {
+  const fbx = useFBX('/models/walk.fbx')
+  const mixerRef = useRef()
+
+  useEffect(() => {
+    if (fbx.animations.length === 0) return
+    const mixer = new THREE.AnimationMixer(fbx)
+    mixerRef.current = mixer
+    mixer.clipAction(fbx.animations[0]).play()
+    return () => mixer.stopAllAction()
+  }, [fbx])
+
+  return <primitive object={fbx} />
+}
+```
+
+### Preloading
+
+```jsx
+useFBX.preload('/models/character.fbx')
+```
+
+### Clearing the cache
+
+```jsx
+useFBX.clear('/models/character.fbx')
+useFBX.clear(['/models/character.fbx', '/models/walk.fbx'])
+```
+
+## `Fbx` component
+
+The `Fbx` component loads an FBX file and renders the first child of the returned group using the `Clone` helper. It accepts all `Clone` props except `object`, which is managed internally.
+
+<ParamField path="path" type="string" required>
+  URL of the `.fbx` file to load.
+</ParamField>
+
+```jsx
+import { Fbx } from '@react-three/drei'
+import { Suspense } from 'react'
+
+export default function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <Fbx path="/models/character.fbx" />
+    </Suspense>
+  )
+}
+```
+
+<Tip>
+  If you need access to the full model `Group` (for example, to attach `AnimationMixer` or access all children), use the `useFBX` hook directly and render via `<primitive object={fbx} />` instead of the `Fbx` component.
+</Tip>

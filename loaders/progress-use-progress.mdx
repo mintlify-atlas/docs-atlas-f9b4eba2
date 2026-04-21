@@ -1,0 +1,137 @@
+---
+title: Track Three.js asset loading progress with useProgress
+description: A Zustand-backed hook that exposes Three.js DefaultLoadingManager state — active, progress, loaded, total, item, and errors — for custom loading UIs.
+---
+
+`useProgress` is a Zustand store that reflects the state of Three.js's `DefaultLoadingManager`. All drei loaders (and any other Three.js loader that uses the default manager) automatically report to it, so a single call to `useProgress` gives you unified progress across all assets in your scene. The companion `Progress` component exposes the same data through a render-prop pattern.
+
+## `useProgress` hook
+
+```ts
+useProgress(): {
+  active: boolean
+  progress: number
+  item: string
+  loaded: number
+  total: number
+  errors: string[]
+}
+```
+
+The hook returns a Zustand store slice with the following fields:
+
+<ParamField path="active" type="boolean">
+  `true` while any asset is being loaded; `false` when all pending loads have completed.
+</ParamField>
+
+<ParamField path="progress" type="number">
+  Percentage of loaded assets, from `0` to `100`.
+</ParamField>
+
+<ParamField path="item" type="string">
+  URL of the asset currently being loaded.
+</ParamField>
+
+<ParamField path="loaded" type="number">
+  Number of items that have finished loading in the current batch.
+</ParamField>
+
+<ParamField path="total" type="number">
+  Total number of items queued in the current batch.
+</ParamField>
+
+<ParamField path="errors" type="string[]">
+  Array of URLs that failed to load.
+</ParamField>
+
+### Suspense fallback loader
+
+The most common pattern is to use `useProgress` inside a component passed as the `fallback` prop to `<Suspense>`.
+
+```jsx
+import { useProgress, Html } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function LoadingIndicator() {
+  const { progress } = useProgress()
+  return <Html center>{progress.toFixed(0)}% loaded</Html>
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={<LoadingIndicator />}>
+      <Scene />
+    </Suspense>
+  )
+}
+```
+
+### Subscribing to specific state
+
+Because `useProgress` is a Zustand store, you can pass a selector to avoid re-renders when unrelated fields change.
+
+```jsx
+// Re-renders only when errors change, not on every progress tick
+const errors = useProgress((state) => state.errors)
+```
+
+### Full progress details
+
+```jsx
+function DetailedLoader() {
+  const { active, progress, errors, item, loaded, total } = useProgress()
+  return (
+    <Html center>
+      <div>
+        {active ? `${loaded}/${total} – ${item}` : 'Ready'}
+      </div>
+      <div>{progress.toFixed(1)}%</div>
+      {errors.length > 0 && (
+        <div>Failed: {errors.join(', ')}</div>
+      )}
+    </Html>
+  )
+}
+```
+
+<Tip>
+  `useProgress` does not need to live inside a Suspense fallback. You can use it anywhere in your component tree — for example, in a DOM overlay outside the canvas — to build custom progress bars or splash screens.
+</Tip>
+
+### DOM overlay example
+
+```jsx
+import { useProgress } from '@react-three/drei'
+
+function ProgressOverlay() {
+  const { active, progress } = useProgress()
+  if (!active) return null
+  return (
+    <div style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <progress value={progress} max={100} />
+    </div>
+  )
+}
+```
+
+## `Progress` component
+
+`Progress` is a thin declarative wrapper that calls `useProgress` and passes the result to a render-prop children function.
+
+<ParamField path="children" type="(result: ProgressData) => React.ReactNode">
+  Render prop receiving the full `useProgress` state object.
+</ParamField>
+
+```jsx
+import { Progress } from '@react-three/drei'
+
+export default function App() {
+  return (
+    <Progress>
+      {({ active, progress }) => (
+        active ? <div>{progress.toFixed(0)}% loading…</div> : null
+      )}
+    </Progress>
+  )
+}
+```

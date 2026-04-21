@@ -1,0 +1,116 @@
+---
+title: 'CubicBezierLine: cubic bezier curve with two handles'
+description: 'Renders a Line2 along a THREE.CubicBezierCurve3 defined by start, end, and two independent control points for precise S-curve shaping.'
+---
+
+`CubicBezierLine` draws a smooth S-shaped curve between two endpoints using cubic Bézier interpolation (`THREE.CubicBezierCurve3`). Unlike `QuadraticBezierLine`, it requires two explicit control points — `midA` near the start and `midB` near the end — giving you independent control over the tangent direction at each endpoint. The rendered object is a `THREE.Line2`, so all `Line` props apply.
+
+## Props
+
+<ParamField path="start" type="Vector3 | [number, number, number]" required>
+  Starting point of the curve. Accepts a `THREE.Vector3` or a three-element array.
+</ParamField>
+
+<ParamField path="end" type="Vector3 | [number, number, number]" required>
+  Ending point of the curve. Accepts a `THREE.Vector3` or a three-element array.
+</ParamField>
+
+<ParamField path="midA" type="Vector3 | [number, number, number]" required>
+  First Bézier control point, influencing the tangent direction at `start`.
+</ParamField>
+
+<ParamField path="midB" type="Vector3 | [number, number, number]" required>
+  Second Bézier control point, influencing the tangent direction at `end`.
+</ParamField>
+
+<ParamField path="segments" type="number" default="20">
+  Number of subdivisions along the curve. Higher values produce smoother curves.
+</ParamField>
+
+<ParamField path="color" type="ColorRepresentation" default="0xffffff">
+  Line color.
+</ParamField>
+
+<ParamField path="lineWidth" type="number" default="1">
+  Line width in pixels.
+</ParamField>
+
+<ParamField path="dashed" type="boolean" default="false">
+  Enables dashed rendering.
+</ParamField>
+
+<ParamField path="vertexColors" type="Array<Color | [number, number, number] | [number, number, number, number]>">
+  Per-vertex color array matched to the interpolated point count.
+</ParamField>
+
+All additional props from `Line` (`THREE.Line2` and `LineMaterial`) are also accepted.
+
+## Usage
+
+<CodeGroup>
+
+```jsx S-curve connector
+import { CubicBezierLine } from '@react-three/drei'
+
+function Connector() {
+  return (
+    <CubicBezierLine
+      start={[-2, -1, 0]}
+      end={[2, 1, 0]}
+      midA={[-1, 1, 0]}
+      midB={[1, -1, 0]}
+      color="white"
+      lineWidth={2}
+    />
+  )
+}
+```
+
+```jsx Node graph edge
+import { CubicBezierLine } from '@react-three/drei'
+
+function GraphEdge({ from, to }) {
+  // Control points extend horizontally from each node
+  const midA = [from[0] + 1, from[1], from[2]]
+  const midB = [to[0] - 1, to[1], to[2]]
+
+  return (
+    <CubicBezierLine
+      start={from}
+      end={to}
+      midA={midA}
+      midB={midB}
+      color="#888"
+      lineWidth={1.5}
+      segments={40}
+    />
+  )
+}
+```
+
+```jsx Dashed cubic curve
+import { CubicBezierLine } from '@react-three/drei'
+
+function DashedCurve() {
+  return (
+    <CubicBezierLine
+      start={[0, 0, 0]}
+      end={[4, 0, 0]}
+      midA={[1, 2, 0]}
+      midB={[3, 2, 0]}
+      color="yellow"
+      lineWidth={1}
+      dashed
+      dashSize={0.15}
+      gapSize={0.1}
+    />
+  )
+}
+```
+
+</CodeGroup>
+
+<Note>
+  For a simpler one-control-point curve, use `QuadraticBezierLine`. For smooth
+  curves through many points, use `CatmullRomLine`.
+</Note>

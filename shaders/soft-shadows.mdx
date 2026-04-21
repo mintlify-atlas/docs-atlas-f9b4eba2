@@ -1,0 +1,104 @@
+---
+title: "SoftShadows: PCSS Soft Shadow Injection for Three.js"
+description: "Inject Percentage Closer Soft Shadows into Three.js's shadow shader chunk. Controls light source size, sample count, and focal depth sharpness."
+---
+
+`SoftShadows` is a scene-level component that patches Three.js's built-in `shadowmap_pars_fragment` shader chunk with a Percentage Closer Soft Shadows (PCSS) implementation. PCSS simulates the penumbra of a light source with physical area by finding nearby shadow-map blockers and using their average depth to widen the shadow-filter kernel proportionally. The further a shadow receiver is from the caster, the softer its shadow edge appears — matching how real-world soft shadows from large light sources behave.
+
+Mounting or unmounting `<SoftShadows />` causes all materials in the scene to recompile their shaders. If it mounts at the same time as the rest of the scene, no extra overhead occurs beyond normal initial compilation.
+
+## Props
+
+<ParamField path="size" type="number" default="25">
+  Represents the angular size of the light source. Larger values produce softer, wider penumbras. Smaller values tighten shadows toward hard edges.
+</ParamField>
+
+<ParamField path="samples" type="number" default="10">
+  Number of Vogel disk samples used in both the blocker search and the filter passes. More samples reduce temporal noise and banding but increase shader complexity. Changing this value recompiles the shadow shader.
+</ParamField>
+
+<ParamField path="focus" type="number" default="0">
+  Depth bias added to the blocker search accumulator. Shift this value to move the focal plane — the distance from the caster at which shadows appear sharpest. `0` means shadows are sharpest at the caster's contact point.
+</ParamField>
+
+## Usage
+
+### Enable scene-wide soft shadows
+
+Add `<SoftShadows />` anywhere inside your `<Canvas>`. Enable `castShadow` and `receiveShadow` on meshes as you normally would.
+
+```jsx
+import { SoftShadows } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <SoftShadows />
+      <directionalLight castShadow position={[5, 10, 5]} />
+      <mesh castShadow position={[0, 1, 0]}>
+        <boxGeometry />
+        <meshStandardMaterial color="orange" />
+      </mesh>
+      <mesh receiveShadow rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[20, 20]} />
+        <meshStandardMaterial color="#aaaaaa" />
+      </mesh>
+    </>
+  )
+}
+```
+
+### Tuned for a large area light
+
+```jsx
+<SoftShadows size={50} samples={16} focus={0} />
+```
+
+### Tighter, higher quality shadows
+
+```jsx
+<SoftShadows size={10} samples={20} focus={0.5} />
+```
+
+<Steps>
+  <Step title="Enable shadow maps on the renderer">
+    Pass `shadows` to your `<Canvas>` element so the WebGL renderer generates shadow maps.
+
+    ```jsx
+    <Canvas shadows>
+      {/* scene */}
+    </Canvas>
+    ```
+  </Step>
+  <Step title="Configure your light">
+    Set `castShadow` on the light and tune the shadow camera frustum to tightly fit your scene for the best quality.
+
+    ```jsx
+    <directionalLight
+      castShadow
+      position={[5, 10, 5]}
+      shadow-mapSize={[1024, 1024]}
+      shadow-camera-far={50}
+      shadow-camera-left={-10}
+      shadow-camera-right={10}
+      shadow-camera-top={10}
+      shadow-camera-bottom={-10}
+    />
+    ```
+  </Step>
+  <Step title="Add SoftShadows to the scene">
+    Mount `<SoftShadows />` with your desired parameters. It returns `null` and has no visual representation of its own.
+
+    ```jsx
+    <SoftShadows size={25} samples={10} />
+    ```
+  </Step>
+</Steps>
+
+<Warning>
+  `SoftShadows` modifies a global Three.js shader chunk (`THREE.ShaderChunk.shadowmap_pars_fragment`). Only one instance should be active in a scene at a time. Mounting multiple instances will produce conflicting shader injections.
+</Warning>
+
+<Note>
+  The `samples` prop inlines loop counts as GLSL constants, which triggers a shader recompile whenever it changes. Keep `samples` constant after the scene has loaded to avoid recompilation stalls at runtime.
+</Note>

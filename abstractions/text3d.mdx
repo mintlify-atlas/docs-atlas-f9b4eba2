@@ -1,0 +1,126 @@
+---
+title: "Text3D: Extruded mesh geometry from typeface fonts"
+description: "Creates extruded Three.js TextGeometry meshes from typeface.json fonts with bevel, smooth normals, and letter-spacing controls in React Three Fiber."
+---
+
+`<Text3D>` generates real 3D geometry from a typeface JSON font, producing fully extruded meshes you can shade, light, and shadow like any other Three.js geometry. It wraps Three.js's `TextGeometry` with a declarative API and adds three extra props—`letterSpacing`, `lineHeight`, and `smooth`—that the underlying geometry does not expose. The component is Suspense-based and suspends while the font JSON loads.
+
+<Note>
+  `<Text3D>` requires fonts in the JSON format produced by [typeface.json](http://gero3.github.io/facetype.js). If glyphs appear mirrored or reversed, check the "Reverse font direction" option in the typeface tool when exporting.
+</Note>
+
+## Props
+
+<ParamField path="font" type="FontData | string" required>
+  A path to a typeface JSON font file, or an already-parsed font JSON object.
+</ParamField>
+
+<ParamField path="size" type="number" default="1">
+  Glyph size in Three.js world units. Maps to `TextGeometry`'s `size` parameter.
+</ParamField>
+
+<ParamField path="height" type="number" default="0.2">
+  Extrusion depth (thickness) of the glyphs along the Z axis.
+</ParamField>
+
+<ParamField path="letterSpacing" type="number" default="0">
+  Additional spacing between glyphs as a fraction. A value of `0` is normal tracking; `-0.05` tightens, `0.05` loosens.
+</ParamField>
+
+<ParamField path="lineHeight" type="number" default="1">
+  Vertical distance between lines in Three.js world units when the text contains newlines.
+</ParamField>
+
+<ParamField path="curveSegments" type="number" default="8">
+  Number of points on each curve segment. Higher values produce smoother glyph outlines.
+</ParamField>
+
+<ParamField path="bevelEnabled" type="boolean" default="false">
+  Adds a bevel to the front and back faces of each glyph.
+</ParamField>
+
+<ParamField path="bevelThickness" type="number" default="0.1">
+  Depth of the bevel along the extrusion axis.
+</ParamField>
+
+<ParamField path="bevelSize" type="number" default="0.01">
+  Distance the bevel extends from the glyph outline.
+</ParamField>
+
+<ParamField path="bevelOffset" type="number" default="0">
+  Offset of the bevel start from the glyph outline edge.
+</ParamField>
+
+<ParamField path="bevelSegments" type="number" default="4">
+  Number of bevel layers.
+</ParamField>
+
+<ParamField path="smooth" type="number">
+  When provided, merges vertices within this tolerance and recomputes vertex normals, producing a smooth shaded appearance. A value of `1` works well for most cases.
+</ParamField>
+
+## Usage
+
+### Basic extruded text
+
+```jsx
+import { Suspense } from 'react'
+import { Text3D } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <Text3D font="/fonts/inter.json">
+        Hello 3D
+        <meshNormalMaterial />
+      </Text3D>
+    </Suspense>
+  )
+}
+```
+
+### Centred text using the Center helper
+
+```jsx
+import { Center, Text3D } from '@react-three/drei'
+
+<Center>
+  <Text3D font="/fonts/inter.json" size={0.8} height={0.1}>
+    Centred
+    <meshStandardMaterial color="hotpink" />
+  </Text3D>
+</Center>
+```
+
+### Multi-line with custom spacing
+
+```jsx
+<Text3D
+  font="/fonts/inter.json"
+  letterSpacing={-0.025}
+  lineHeight={0.8}
+  size={0.6}
+>
+  {`Line one\nLine two`}
+  <meshStandardMaterial color="white" />
+</Text3D>
+```
+
+### Bevelled and smooth
+
+```jsx
+<Text3D
+  font="/fonts/inter.json"
+  bevelEnabled
+  bevelThickness={0.02}
+  bevelSize={0.01}
+  smooth={1}
+>
+  Bevelled
+  <meshStandardMaterial color="gold" metalness={0.8} roughness={0.2} />
+</Text3D>
+```
+
+<Tip>
+  Use the `<Center>` component to pivot text to its geometric centre. Combine `top` and `left` props to align text to its top-left corner, which is useful for multiline blocks.
+</Tip>

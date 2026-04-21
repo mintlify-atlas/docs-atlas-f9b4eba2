@@ -1,0 +1,131 @@
+---
+title: 'Stage: Studio Lighting, Shadows, and Auto-Centering'
+description: 'Creates a studio-quality stage with lighting presets, model shadows, ground shadows, and optional camera auto-fit. Zero configuration needed.'
+---
+
+`Stage` wraps your models in a ready-made presentation environment. It applies studio-style lighting, centers content at the origin, and optionally adjusts the camera to fit the scene. Contact shadows or accumulative shadows are added beneath the model depending on the `shadows` prop.
+
+<Note>
+  When `adjustCamera` is enabled, you must add `makeDefault` to your camera controls (e.g. `<OrbitControls makeDefault />`). Without this, camera fitting will not work correctly.
+</Note>
+
+## Props
+
+<ParamField path="preset" type="'rembrandt' | 'portrait' | 'upfront' | 'soft' | { main: [x, y, z]; fill: [x, y, z] }" default="'rembrandt'">
+  Lighting arrangement. Built-in options position a main spot light and a fill point light at different angles. Pass a custom object to define your own positions.
+</ParamField>
+
+<ParamField path="shadows" type="boolean | 'contact' | 'accumulative' | StageShadows" default="'contact'">
+  Ground shadow type. `false` disables shadows. `'contact'` uses `ContactShadows`. `'accumulative'` uses `AccumulativeShadows` with `RandomizedLight`. Pass a `StageShadows` object for fine-grained control.
+</ParamField>
+
+<ParamField path="adjustCamera" type="boolean | number" default="true">
+  When `true`, wraps content in `Bounds` and fits the camera on mount. Pass a number to control the margin factor.
+</ParamField>
+
+<ParamField path="environment" type="PresetsType | Partial<EnvironmentProps> | null" default="'city'">
+  Environment preset name or `EnvironmentProps` object. Set to `null` to disable the environment entirely.
+</ParamField>
+
+<ParamField path="intensity" type="number" default="0.5">
+  Overall lighting intensity. The ambient light receives `intensity / 3`, the spot light receives `intensity * 2`, and the fill point light receives `intensity`.
+</ParamField>
+
+<ParamField path="center" type="Partial<CenterProps>">
+  Props forwarded to the internal `Center` component. Use this to adjust centering behavior or receive the `onCentered` callback.
+</ParamField>
+
+### StageShadows object
+
+When passing an object to the `shadows` prop, the following additional fields are available alongside all `AccumulativeShadowsProps`, `RandomizedLightProps`, and `ContactShadowsProps`:
+
+<ParamField path="shadows.type" type="'contact' | 'accumulative'" required>
+  Which shadow system to use.
+</ParamField>
+
+<ParamField path="shadows.offset" type="number" default="0">
+  Vertical offset of the shadow plane from the model base.
+</ParamField>
+
+<ParamField path="shadows.bias" type="number" default="-0.0001">
+  Shadow map bias to reduce self-shadowing artifacts.
+</ParamField>
+
+<ParamField path="shadows.normalBias" type="number" default="0">
+  Normal bias added to the shadow map depth comparison.
+</ParamField>
+
+<ParamField path="shadows.size" type="number" default="1024">
+  Shadow map resolution in pixels.
+</ParamField>
+
+## Usage
+
+### Basic usage
+
+`Stage` wraps your models with sensible defaults. No extra setup needed.
+
+```jsx
+import { Stage, OrbitControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <Stage>
+        <mesh>
+          <boxGeometry />
+          <meshStandardMaterial color="royalblue" />
+        </mesh>
+      </Stage>
+      <OrbitControls makeDefault />
+    </>
+  )
+}
+```
+
+### Accumulative shadows
+
+For more realistic, raycast-like shadows, switch to `'accumulative'`. The canvas and your models must have shadow support enabled.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { Stage, OrbitControls } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas shadows>
+      <Stage shadows="accumulative">
+        <mesh castShadow>
+          <sphereGeometry />
+          <meshStandardMaterial />
+        </mesh>
+      </Stage>
+      <OrbitControls makeDefault />
+    </Canvas>
+  )
+}
+```
+
+### Custom lighting preset
+
+Use a custom `preset` to define your own main and fill light positions.
+
+```jsx
+<Stage
+  preset={{ main: [2, 3, 2], fill: [-2, -1, -2] }}
+  intensity={0.8}
+  environment="warehouse"
+>
+  <Model />
+</Stage>
+```
+
+### Disabling camera adjustment
+
+When you want to manage the camera yourself, set `adjustCamera={false}`.
+
+```jsx
+<Stage adjustCamera={false} shadows="contact" environment="studio">
+  <Model />
+</Stage>
+```

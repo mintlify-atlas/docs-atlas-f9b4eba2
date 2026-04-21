@@ -1,0 +1,95 @@
+---
+title: "MeshDistortMaterial: Simplex Noise Vertex Distortion"
+description: "Deform mesh geometry using 3D simplex noise driven by elapsed time. Extends MeshPhysicalMaterial with distort, radius, and speed controls."
+---
+
+`MeshDistortMaterial` replaces the standard vertex position calculation with a simplex-noise-based displacement. Each frame, a 3D noise field is sampled at the vertex position offset by the current time, and the result is used to scale the vertex outward from the origin. The effect produces organic, blob-like deformations that evolve smoothly over time. Because it extends `THREE.MeshPhysicalMaterial`, you can combine it with transmission, clearcoat, and other physically based properties for rich visual results.
+
+## Props
+
+<ParamField path="speed" type="number" default="1">
+  Multiplier applied to the elapsed clock time when advancing the `time` uniform. Higher values cause the noise field to evolve more quickly, producing faster distortions.
+</ParamField>
+
+<ParamField path="distort" type="number" default="0.4">
+  Strength of the noise-based displacement. The value is squared in the shader, so small increases have a large visual impact. `0` renders the geometry undistorted.
+</ParamField>
+
+<ParamField path="radius" type="number" default="1">
+  Base scale factor applied to vertex positions before distortion. Values below `1` compress the mesh inward; values above `1` expand it outward uniformly.
+</ParamField>
+
+All props accepted by `THREE.MeshPhysicalMaterial` (e.g. `color`, `roughness`, `transmission`, `clearcoat`) are also valid.
+
+## Usage
+
+### Organic blob
+
+```jsx
+import { MeshDistortMaterial } from '@react-three/drei'
+
+function Blob() {
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 128, 128]} />
+      <MeshDistortMaterial
+        color="#8844ee"
+        distort={0.4}
+        speed={2}
+        roughness={0.2}
+      />
+    </mesh>
+  )
+}
+```
+
+### Slow, subtle breathing effect
+
+```jsx
+<mesh>
+  <icosahedronGeometry args={[1, 4]} />
+  <MeshDistortMaterial
+    color="#22ccaa"
+    distort={0.15}
+    speed={0.6}
+    radius={1}
+    metalness={0.3}
+    roughness={0.4}
+  />
+</mesh>
+```
+
+### Interactive distort via ref
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { MeshDistortMaterial } from '@react-three/drei'
+
+function InteractiveBlob({ hovered }) {
+  const matRef = useRef()
+
+  useFrame(() => {
+    if (matRef.current) {
+      matRef.current.distort = hovered
+        ? Math.min(matRef.current.distort + 0.01, 0.8)
+        : Math.max(matRef.current.distort - 0.01, 0.1)
+    }
+  })
+
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <MeshDistortMaterial ref={matRef} color="#ff4444" speed={2} />
+    </mesh>
+  )
+}
+```
+
+<Tip>
+  High-subdivision geometries (e.g. `sphereGeometry` with 128+ segments) look best with `MeshDistortMaterial` because the smooth mesh allows noise-driven displacements to appear continuous rather than faceted.
+</Tip>
+
+<Warning>
+  The `distort` value is squared in the shader formula (`noise * pow(distort, 2.0)`). Values above `0.7` will produce extreme geometry deformation that may look unnatural for most use cases.
+</Warning>

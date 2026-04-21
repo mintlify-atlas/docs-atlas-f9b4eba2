@@ -1,0 +1,149 @@
+---
+title: "View: scissor-based multi-viewport for react-three-fiber"
+description: "Split a single canvas into multiple independent 3D viewports using View. Each view tracks a DOM element and renders its own scene with its own camera."
+---
+
+`View` uses `gl.scissor` to carve a single WebGL canvas into independent rendering regions. You place `<View>` elements directly in your HTML layout as normal DOM nodes, and each one tracks its own position and dimensions. Inside the canvas, `<View.Port />` outputs all registered views. This lets you build multi-viewport layouts — product configurators, side-by-side comparisons, scroll-driven 3D content — with a single performant canvas.
+
+<Note>
+  `@react-three/fiber` version `^8.1.0` or higher is required for `View` to work correctly when the canvas is not fullscreen.
+</Note>
+
+## Props
+
+<ParamField path="as" type="string" default="div">
+  The HTML element type to render as the view's DOM container.
+</ParamField>
+
+<ParamField path="id" type="string">
+  CSS `id` applied to the container element.
+</ParamField>
+
+<ParamField path="className" type="string">
+  CSS class name applied to the container element.
+</ParamField>
+
+<ParamField path="style" type="React.CSSProperties">
+  Inline CSS styles applied to the container element.
+</ParamField>
+
+<ParamField path="visible" type="boolean" default="true">
+  When `false`, the view is hidden and its region is cleared. Useful for conditionally showing 3D content without unmounting the scene.
+</ParamField>
+
+<ParamField path="index" type="number" default="1">
+  Render priority for this view's render loop. Views with a higher index render after lower-indexed views.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  How many frames to call `getBoundingClientRect` to track the element's position. Set to `1` if the view never moves in the layout to avoid per-frame DOM reads.
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode">
+  The 3D scene content to render inside this view. If omitted, the default canvas scene is rendered instead.
+</ParamField>
+
+<ParamField path="track" type="React.RefObject<HTMLElement>" deprecated>
+  A ref to an external HTML element to track for position and bounds. Use inline `View` placement instead — see the migration note below.
+</ParamField>
+
+## Basic usage
+
+Define views directly in your HTML layout, then place `View.Port` inside your canvas. The canvas should cover the full screen so scissors can clip each view region accurately:
+
+```jsx
+import { useRef } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { View, OrbitControls, PerspectiveCamera } from '@react-three/drei'
+
+export default function App() {
+  const container = useRef()
+
+  return (
+    <main ref={container} style={{ position: 'relative' }}>
+      <h1>My Page</h1>
+
+      {/* First view — inline div tracked automatically */}
+      <View style={{ width: 400, height: 300 }}>
+        <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+        <mesh>
+          <boxGeometry />
+          <meshStandardMaterial color="orange" />
+        </mesh>
+        <OrbitControls />
+      </View>
+
+      {/* Second view */}
+      <View style={{ width: 400, height: 300 }}>
+        <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+        <mesh>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshStandardMaterial color="royalblue" />
+        </mesh>
+        <OrbitControls />
+      </View>
+
+      {/* Canvas covers full screen, outputs all views */}
+      <Canvas
+        eventSource={container}
+        style={{ position: 'fixed', inset: 0 }}
+      >
+        <View.Port />
+      </Canvas>
+    </main>
+  )
+}
+```
+
+<Tip>
+  Connect `eventSource` on the `Canvas` to the shared parent container. This ensures pointer events work correctly across both the HTML content and the 3D views.
+</Tip>
+
+## Scroll-driven views
+
+Views follow their tracking elements as the page scrolls. Use this to attach 3D visuals to content sections:
+
+```jsx
+<article>
+  <section>
+    <h2>Geometry showcase</h2>
+    <View className="view-block">
+      <PerspectiveCamera makeDefault position={[0, 0, 4]} />
+      <mesh>
+        <torusKnotGeometry args={[0.6, 0.2, 128, 16]} />
+        <meshNormalMaterial />
+      </mesh>
+      <OrbitControls />
+    </View>
+  </section>
+
+  <section>
+    <h2>Material showcase</h2>
+    <View className="view-block">
+      <PerspectiveCamera makeDefault position={[0, 0, 4]} />
+      <mesh>
+        <icosahedronGeometry args={[1, 0]} />
+        <meshStandardMaterial color="gold" metalness={1} roughness={0} />
+      </mesh>
+      <OrbitControls />
+    </View>
+  </section>
+</article>
+```
+
+## Controlling frame updates
+
+If a view is in a fixed position and never moves, set `frames={1}` to measure bounds once and skip per-frame `getBoundingClientRect` calls:
+
+```jsx
+<View frames={1} style={{ width: 300, height: 300, position: 'fixed', bottom: 24, right: 24 }}>
+  <mesh>
+    <sphereGeometry />
+    <meshStandardMaterial />
+  </mesh>
+</View>
+```
+
+## How it works
+
+When used outside a `Canvas`, `View` renders an HTML container element and tunnels its children into the canvas via an internal `tunnel-rat` tunnel. Inside the canvas, each view creates an isolated `THREE.Scene` using `createPortal`. On every frame, `useFrame` computes the view's screen position from its tracked DOM rect and calls `gl.setScissor` / `gl.setViewport` to restrict rendering to that region. The camera's aspect ratio is automatically updated to match the view's dimensions.

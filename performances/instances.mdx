@@ -1,0 +1,204 @@
+---
+title: "Instances: declarative GPU instancing for Three.js meshes"
+description: "Render thousands of identical meshes in a single draw call using THREE.InstancedMesh, with a declarative React API for per-instance transforms and events."
+---
+
+`Instances` wraps `THREE.InstancedMesh` so you can place hundreds of thousands of objects in a scene while paying the GPU cost of only one draw call. Each `Instance` child is a virtual object that drives the instanced mesh's transform buffers every frame, letting you use familiar React patterns — conditional rendering, state, refs — without multiplying draw calls.
+
+## Basic usage
+
+Place geometry and material as children of `<Instances>`, then declare as many `<Instance>` components as you need. Each instance supports `position`, `rotation`, `scale`, `color`, and pointer events.
+
+```jsx
+import { Instances, Instance } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Instances limit={1000}>
+      <boxGeometry />
+      <meshStandardMaterial />
+      <Instance color="red" scale={2} position={[1, 2, 3]} />
+      <Instance color="blue" position={[-1, 0, 0]} onClick={(e) => console.log(e)} />
+    </Instances>
+  )
+}
+```
+
+## Props
+
+### Instances
+
+<ParamField path="limit" type="number" default="1000">
+  Maximum number of instances. Determines the size of the underlying buffer
+  arrays. Setting this too low will silently clip instances beyond the limit.
+</ParamField>
+
+<ParamField path="range" type="number">
+  Draw range override. Defaults to `limit`. Use this to dynamically show or
+  hide a subset of instances without unmounting them.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  Number of frames to run the instance matrix update loop. Set to a fixed
+  number to stop updating after a scene is static, reducing CPU overhead.
+</ParamField>
+
+<ParamField path="context" type="React.Context">
+  Custom React context. Used with `createInstances` to allow nested instance
+  trees that don't interfere with each other.
+</ParamField>
+
+### Instance
+
+<ParamField path="position" type="Vector3">
+  World position of this instance, in the local coordinate space of the
+  parent `<Instances>` group.
+</ParamField>
+
+<ParamField path="rotation" type="Euler">
+  Rotation applied to this instance.
+</ParamField>
+
+<ParamField path="scale" type="Vector3 | number">
+  Scale applied to this instance. Accepts a single number for uniform scaling.
+</ParamField>
+
+<ParamField path="color" type="Color">
+  Per-instance color. Accepts any value that `THREE.Color` understands.
+</ParamField>
+
+<ParamField path="context" type="React.Context">
+  Custom context, used when the instance belongs to a `createInstances` pair
+  rather than the nearest `<Instances>` ancestor.
+</ParamField>
+
+### InstancedAttribute
+
+<ParamField path="name" type="string" required>
+  The attribute name as it appears in your vertex shader (`attribute float
+  name;`).
+</ParamField>
+
+<ParamField path="defaultValue" type="any" required>
+  Starting value for every instance. Can be a scalar, an array, or any
+  Three.js type with a `toArray` method. The stride is inferred from the
+  length of this value.
+</ParamField>
+
+<ParamField path="normalized" type="boolean">
+  Whether the buffer attribute values should be normalized on upload to the
+  GPU.
+</ParamField>
+
+<ParamField path="usage" type="number" default="THREE.DynamicDrawUsage">
+  WebGL buffer usage hint. Override with `THREE.StaticDrawUsage` for
+  attributes that never change.
+</ParamField>
+
+## Nesting and groups
+
+Instances respect the parent transform graph, so you can nest them inside groups and use relative coordinates:
+
+```jsx
+<group position={[5, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+  <Instance />
+</group>
+```
+
+Instances can also hold non-instanced children, such as HTML annotations:
+
+```jsx
+<Instance position={[0, 2, 0]}>
+  <Html>Label</Html>
+</Instance>
+```
+
+## Multiple instance types
+
+When you need two instance types in the same subtree, use `createInstances` to produce an isolated provider/instance pair. Without it, a nested `<Instance>` would register with the wrong `<Instances>` ancestor.
+
+```jsx
+const [CubeInstances, Cube] = createInstances()
+const [SphereInstances, Sphere] = createInstances()
+
+function Scene() {
+  return (
+    <CubeInstances>
+      <boxGeometry />
+      <meshStandardMaterial />
+      <SphereInstances>
+        <sphereGeometry />
+        <meshLambertMaterial />
+        <Cube position={[1, 2, 3]} />
+        <Sphere position={[4, 5, 6]} />
+      </SphereInstances>
+    </CubeInstances>
+  )
+}
+```
+
+## Custom instanced attributes
+
+Use `InstancedAttribute` to pass per-instance data to a custom shader. The `defaultValue` stride determines the GLSL type (`float`, `vec2`, `vec3`, etc.).
+
+```jsx
+<Instances limit={20}>
+  <boxGeometry />
+  <shaderMaterial
+    vertexShader={`
+      attribute float heat;
+      varying float vHeat;
+      void main() {
+        vHeat = heat;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `}
+    fragmentShader={`
+      varying float vHeat;
+      void main() {
+        gl_FragColor = vec4(vHeat, 0.0, 1.0 - vHeat, 1.0);
+      }
+    `}
+  />
+  <InstancedAttribute name="heat" defaultValue={0} />
+  <Instance position={[-1, 0, 0]} heat={0.2} />
+  <Instance position={[1, 0, 0]} heat={0.9} />
+</Instances>
+```
+
+## Typed attributes with createInstances
+
+Pass a type parameter to `createInstances` for typed per-instance attributes:
+
+```tsx
+interface TreeAttributes {
+  windStrength: number
+}
+
+const [TreeInstances, Tree] = createInstances<TreeAttributes>()
+
+function Forest() {
+  return (
+    <TreeInstances>
+      <InstancedAttribute name="windStrength" defaultValue={0} />
+      <coneGeometry args={[0.5, 2, 8]} />
+      <meshStandardMaterial />
+      <Tree position={[0, 0, 0]} windStrength={0.3} />
+      <Tree position={[3, 0, 0]} windStrength={0.8} />
+    </TreeInstances>
+  )
+}
+```
+
+<Note>
+  The declarative approach has CPU overhead because instance matrices are
+  computed in JavaScript every frame. For static foliage or scenes with tens
+  of thousands of instances, prefer writing directly to `THREE.InstancedMesh`
+  buffers.
+</Note>
+
+<Tip>
+  Set `frames` to a small integer (e.g. `frames={1}`) when instances are
+  placed once at startup and never move. This runs the matrix sync loop only
+  once and then stops, eliminating all per-frame CPU cost.
+</Tip>

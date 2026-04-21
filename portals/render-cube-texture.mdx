@@ -1,0 +1,166 @@
+---
+title: "RenderCubeTexture: live cubemap rendering in drei"
+description: "Render a live scene into a WebGL cubemap texture with RenderCubeTexture. Attach it as an environment map or use it wherever a CubeTexture is accepted."
+---
+
+`RenderCubeTexture` renders a live Three.js scene into a `WebGLCubeRenderTarget` and exposes the resulting cube texture as a `THREE.CubeTexture`. The component uses a `THREE.CubeCamera` internally — six renders per frame, one for each face — to capture the surrounding environment. You can attach the texture as an `envMap`, use it with custom shaders, or compose it with other portal components. The ref forwarded by the component gives you direct access to the scene, FBO, and cube camera.
+
+## Props
+
+<ParamField path="children" type="React.ReactNode" required>
+  The 3D scene to render into the cubemap. Runs inside an isolated portal with its own scene context.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="896">
+  Resolution of each cubemap face in pixels. Lower values improve performance at the cost of sharpness.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  Number of frames to render. Set to `1` for a static baked cubemap. Defaults to `Infinity` for continuous updates.
+</ParamField>
+
+<ParamField path="renderPriority" type="number" default="-1">
+  Priority passed to `useFrame` controlling when the cube renders relative to other frame callbacks. Defaults to `-1` so it renders before the main scene.
+</ParamField>
+
+<ParamField path="eventPriority" type="number" default="0">
+  Priority of the portal's event system.
+</ParamField>
+
+<ParamField path="compute" type="ComputeFunction">
+  Custom event compute function for the portal's event system.
+</ParamField>
+
+<ParamField path="flip" type="boolean" default="false">
+  Flip the cubemap. Required for some use cases — see the [Three.js `WebGLCubeRenderTarget` source](https://github.com/mrdoob/three.js/blob/master/src/renderers/WebGLCubeRenderTarget.js) for details.
+</ParamField>
+
+<ParamField path="near" type="number" default="0.1">
+  Near clipping plane for the internal `CubeCamera`.
+</ParamField>
+
+<ParamField path="far" type="number" default="1000">
+  Far clipping plane for the internal `CubeCamera`.
+</ParamField>
+
+<ParamField path="stencilBuffer" type="boolean" default="false">
+  Allocate a stencil buffer for the render target.
+</ParamField>
+
+<ParamField path="depthBuffer" type="boolean" default="true">
+  Allocate a depth buffer for the render target.
+</ParamField>
+
+<ParamField path="generateMipmaps" type="boolean" default="false">
+  Generate mipmaps after each render.
+</ParamField>
+
+<ParamField path="position" type="ReactThreeFiber.Vector3">
+  Position of the internal `CubeCamera` object.
+</ParamField>
+
+<ParamField path="rotation" type="ReactThreeFiber.Euler">
+  Rotation of the internal `CubeCamera` object.
+</ParamField>
+
+<ParamField path="scale" type="ReactThreeFiber.Vector3">
+  Scale of the internal `CubeCamera` object.
+</ParamField>
+
+<ParamField path="quaternion" type="ReactThreeFiber.Quaternion">
+  Quaternion rotation of the internal `CubeCamera` object.
+</ParamField>
+
+<ParamField path="matrix" type="ReactThreeFiber.Matrix4">
+  Matrix transform of the internal `CubeCamera` object.
+</ParamField>
+
+<ParamField path="matrixAutoUpdate" type="boolean">
+  Whether Three.js should auto-update the `CubeCamera`'s world matrix.
+</ParamField>
+
+## Ref API
+
+Forward a ref to access the component's internals:
+
+```tsx
+type RenderCubeTextureApi = {
+  scene: THREE.Scene
+  fbo: THREE.WebGLCubeRenderTarget
+  camera: THREE.CubeCamera
+}
+```
+
+## Basic usage
+
+Render a live scene into the environment map of a sphere:
+
+```jsx
+import { useRef } from 'react'
+import { RenderCubeTexture } from '@react-three/drei'
+
+export default function ReflectiveSphere() {
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshBasicMaterial>
+        <RenderCubeTexture attach="envMap" flip>
+          <color attach="background" args={['#202030']} />
+          <ambientLight intensity={0.5} />
+          <mesh position={[2, 0, 0]}>
+            <boxGeometry />
+            <meshStandardMaterial color="hotpink" />
+          </mesh>
+          <mesh position={[-2, 0, 0]}>
+            <sphereGeometry args={[0.5]} />
+            <meshStandardMaterial color="cyan" />
+          </mesh>
+        </RenderCubeTexture>
+      </meshBasicMaterial>
+    </mesh>
+  )
+}
+```
+
+## Accessing the camera and FBO
+
+Use the forwarded ref to read the scene, FBO, and cube camera directly:
+
+```tsx
+import { useRef } from 'react'
+import { RenderCubeTexture, RenderCubeTextureApi } from '@react-three/drei'
+
+export default function Scene() {
+  const api = useRef<RenderCubeTextureApi>(null!)
+
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshBasicMaterial>
+        <RenderCubeTexture ref={api} attach="envMap" flip>
+          <mesh />
+        </RenderCubeTexture>
+      </meshBasicMaterial>
+    </mesh>
+  )
+}
+```
+
+## Static environment bake
+
+Set `frames={1}` to capture the cubemap once and never re-render, giving you the performance of a baked environment with dynamically authored content:
+
+```jsx
+<RenderCubeTexture attach="envMap" flip frames={1} resolution={256}>
+  <Sky />
+  <ambientLight intensity={1} />
+</RenderCubeTexture>
+```
+
+<Tip>
+  Lower `resolution` values (e.g. `256` or `128`) are usually sufficient for environment reflections on curved surfaces. Reserve high resolutions for flat mirror-like surfaces where detail is visible.
+</Tip>
+
+<Note>
+  `RenderCubeTexture` performs six renders per frame when `frames` is `Infinity`. For scenes with many objects, consider using a lower `resolution` or limiting `frames` to reduce the GPU cost.
+</Note>

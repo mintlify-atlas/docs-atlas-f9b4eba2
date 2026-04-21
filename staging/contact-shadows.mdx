@@ -1,0 +1,135 @@
+---
+title: 'ContactShadows: Blurred Soft Ground Shadow Catcher'
+description: 'A contact shadow implementation that renders blurred depth-based shadows facing upward. Configurable blur, opacity, scale, color, and render frame count.'
+---
+
+`ContactShadows` implements the [Three.js contact shadow technique](https://threejs.org/examples/#webgl_shadow_contact). It renders scene geometry into a downward-facing orthographic camera, blurs the result with horizontal and vertical blur passes, and projects the shadow onto a plane facing upward along the positive Y axis. Unlike standard shadow maps, this technique produces soft, aesthetically pleasing ground shadows at a fixed cost.
+
+<Note>
+  `ContactShadows` does not use the standard Three.js shadow pipeline. Objects do not need `castShadow` enabled. The shadow is computed from the scene depth as seen from above.
+</Note>
+
+## Props
+
+<ParamField path="opacity" type="number" default="1">
+  Opacity of the shadow plane material.
+</ParamField>
+
+<ParamField path="scale" type="number | [x: number, y: number]" default="10">
+  Size of the shadow catcher plane. A single number produces a square plane; an array sets independent width and height.
+</ParamField>
+
+<ParamField path="blur" type="number" default="1">
+  Blur amount applied to the shadow texture. Higher values produce softer, more spread-out shadows.
+</ParamField>
+
+<ParamField path="far" type="number" default="10">
+  Distance above the shadow plane that the orthographic camera extends. Objects further than this will not cast shadows.
+</ParamField>
+
+<ParamField path="near" type="number" default="0">
+  Near plane of the orthographic shadow camera.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="512">
+  Resolution of the shadow render target in pixels. Higher values produce sharper shadows.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  How many frames the shadow is rendered. Set to `1` for static scenes to avoid re-rendering every frame.
+</ParamField>
+
+<ParamField path="smooth" type="boolean" default="true">
+  Applies a second, lighter blur pass for smoother shadow edges.
+</ParamField>
+
+<ParamField path="color" type="THREE.ColorRepresentation" default="'#000000'">
+  Tint color of the shadow.
+</ParamField>
+
+<ParamField path="depthWrite" type="boolean" default="false">
+  Whether the shadow plane writes to the depth buffer.
+</ParamField>
+
+<ParamField path="width" type="number" default="1">
+  Width multiplier for the shadow plane. Combined with `scale` to determine the final plane width.
+</ParamField>
+
+<ParamField path="height" type="number" default="1">
+  Height multiplier for the shadow plane. Combined with `scale` to determine the final plane height.
+</ParamField>
+
+## Usage
+
+### Basic contact shadows
+
+Place `ContactShadows` at the base of your scene, typically at `y = 0`.
+
+```jsx
+import { ContactShadows } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <mesh position={[0, 1, 0]}>
+        <sphereGeometry />
+        <meshStandardMaterial color="tomato" />
+      </mesh>
+      <ContactShadows
+        position={[0, 0, 0]}
+        opacity={0.8}
+        scale={10}
+        blur={2}
+        far={5}
+        resolution={512}
+      />
+    </>
+  )
+}
+```
+
+### Static shadow (single frame)
+
+For scenes where geometry does not move, render the shadow only once.
+
+```jsx
+<ContactShadows
+  frames={1}
+  opacity={1}
+  scale={8}
+  blur={1.5}
+  far={8}
+  color="#330000"
+/>
+```
+
+### Colored shadow
+
+Use the `color` prop to tint shadows for stylistic effects.
+
+```jsx
+<ContactShadows
+  scale={10}
+  blur={2}
+  far={10}
+  opacity={0.6}
+  color="#1a0533"
+/>
+```
+
+### Wide rectangular shadow
+
+Pass a 2D scale array for non-square shadow areas.
+
+```jsx
+<ContactShadows
+  scale={[16, 8]}
+  blur={3}
+  far={6}
+  opacity={0.7}
+/>
+```
+
+<Tip>
+  `ContactShadows` rerenders every frame by default. Set `frames={1}` whenever the scene geometry is static to recover the GPU cost of the two blur passes.
+</Tip>

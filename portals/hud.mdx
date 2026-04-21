@@ -1,0 +1,88 @@
+---
+title: "Hud: heads-up display layer for react-three-fiber"
+description: "Render isolated 3D content on top of your main canvas. Each Hud layer has its own camera, lighting environment, and independent event system."
+---
+
+`Hud` renders a heads-up display scene on top of your existing canvas. Each `Hud` is a fully isolated `createPortal` scene, so you can place independent cameras, environment maps, and event handlers inside it without interfering with the rest of your scene graph. The first `Hud` (with `renderPriority === 1`) renders the default scene first, then composites its own scene on top with depth-clearing — this ordering is critical when stacking multiple HUDs.
+
+## Props
+
+<ParamField path="children" type="React.ReactNode" required>
+  The 3D content to render inside the HUD layer. Receives its own isolated scene context.
+</ParamField>
+
+<ParamField path="renderPriority" type="number" default="1">
+  Controls render order and whether the default scene is rendered first. The first HUD (`renderPriority === 1`) clears and renders the default scene before drawing the HUD. Higher values stack additional HUD layers on top.
+</ParamField>
+
+<Warning>
+  The first `Hud` in your scene must have `renderPriority={1}`. It is responsible for rendering the default scene before the HUD layer. If you skip it or assign the wrong priority, the main scene will not appear.
+</Warning>
+
+## Basic usage
+
+Render a ring mesh in a HUD with its own perspective camera:
+
+```jsx
+import { Hud, PerspectiveCamera } from '@react-three/drei'
+
+export default function Scene() {
+  return (
+    <>
+      {/* Your main scene */}
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial color="orange" />
+      </mesh>
+
+      {/* HUD layer — renders on top with its own camera */}
+      <Hud>
+        <PerspectiveCamera makeDefault position={[0, 0, 10]} />
+        <mesh>
+          <ringGeometry args={[0.4, 0.5, 64]} />
+          <meshBasicMaterial color="white" />
+        </mesh>
+      </Hud>
+    </>
+  )
+}
+```
+
+## Stacking multiple HUDs
+
+Each additional `Hud` must use a higher `renderPriority` than the one below it. The first HUD clears depth before drawing, each subsequent one does the same:
+
+```jsx
+{/* First HUD — renders default scene + HUD layer */}
+<Hud renderPriority={1}>
+  <PerspectiveCamera makeDefault position={[0, 0, 10]} />
+  <mesh>
+    <ringGeometry />
+    <meshBasicMaterial color="white" />
+  </mesh>
+</Hud>
+
+{/* Second HUD — stacks on top of the first */}
+<Hud renderPriority={2}>
+  <OrthographicCamera makeDefault position={[0, 0, 10]} />
+  <mesh>
+    <boxGeometry args={[0.5, 0.5, 0.5]} />
+    <meshBasicMaterial color="hotpink" />
+  </mesh>
+</Hud>
+```
+
+<Tip>
+  Use an `OrthographicCamera` inside HUD layers when you want screen-space elements that do not appear to move with perspective — such as UI indicators, crosshairs, or overlay icons.
+</Tip>
+
+## How it works
+
+Internally, `Hud` calls `createPortal` to mount children into a new `THREE.Scene`. A `RenderHud` helper component uses `useFrame` at the given `renderPriority` to:
+
+1. Render the default scene and camera (only when `renderPriority === 1`).
+2. Disable `gl.autoClear` and call `gl.clearDepth()`.
+3. Render the portal scene with the HUD's own camera.
+4. Restore the original `autoClear` state.
+
+Because each HUD is an isolated portal, pointer events are scoped correctly — the `events.priority` on the portal is set to `renderPriority + 1` so the topmost layer wins input.

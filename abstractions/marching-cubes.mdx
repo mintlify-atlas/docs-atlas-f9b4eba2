@@ -1,0 +1,120 @@
+---
+title: "MarchingCubes: Metaballs and implicit surface meshes"
+description: "Declarative wrapper around Three.js MarchingCubes for metaballs and blob effects. Compose with MarchingCube and MarchingPlane children."
+---
+
+`<MarchingCubes>` provides a declarative API for Three.js's marching cubes algorithm. It produces a dynamically tessellated implicit surface from a collection of `<MarchingCube>` ball sources and optional `<MarchingPlane>` wall sources. Each frame the parent resets the field, each child adds its contribution, and Three.js regenerates the mesh. This makes it straightforward to create metaball simulations, fluid blobs, and similar organic shapes.
+
+<Note>
+  `<MarchingCubes>` resets and recomputes the field every frame at priority `-1`, before any ball or plane children run their `useFrame` callbacks. This ordering ensures children always contribute to a fresh field.
+</Note>
+
+## MarchingCubes props
+
+<ParamField path="resolution" type="number" default="28">
+  Grid resolution of the marching cubes field. Higher values produce smoother surfaces but are more computationally expensive. Values around `40`–`60` are common for quality renders.
+</ParamField>
+
+<ParamField path="maxPolyCount" type="number" default="10000">
+  Maximum number of triangles the mesh can contain. Increase this if the geometry is being clipped at complex configurations.
+</ParamField>
+
+<ParamField path="enableUvs" type="boolean" default="false">
+  Generates UV coordinates on the output geometry. Required if you want to apply textures to the surface.
+</ParamField>
+
+<ParamField path="enableColors" type="boolean" default="false">
+  Generates per-vertex colours on the output geometry. Enables coloured metaball effects when combined with `MarchingCube`'s `color` prop.
+</ParamField>
+
+## MarchingCube props
+
+`<MarchingCube>` represents a single ball source in the field. Its world position drives where the ball is added each frame.
+
+<ParamField path="strength" type="number" default="0.5">
+  Strength of the ball's field contribution. Higher values create a larger, more prominent influence.
+</ParamField>
+
+<ParamField path="subtract" type="number" default="12">
+  Subtraction constant that controls how quickly the ball's influence falls off with distance.
+</ParamField>
+
+<ParamField path="color" type="Color">
+  Per-ball colour. Only has an effect when the parent `<MarchingCubes>` has `enableColors` set to `true`.
+</ParamField>
+
+## MarchingPlane props
+
+`<MarchingPlane>` adds an infinite plane source that clamps the implicit surface along one axis.
+
+<ParamField path="planeType" type="'x' | 'y' | 'z'" default="'x'">
+  The axis along which the plane cuts.
+</ParamField>
+
+<ParamField path="strength" type="number" default="0.5">
+  Strength of the plane's field contribution.
+</ParamField>
+
+<ParamField path="subtract" type="number" default="12">
+  Subtraction constant for falloff.
+</ParamField>
+
+## Usage
+
+### Basic metaballs
+
+```jsx
+import { MarchingCubes, MarchingCube } from '@react-three/drei'
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+
+function Ball({ speed, offset }) {
+  const ref = useRef()
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime * speed + offset
+    ref.current.position.set(
+      Math.sin(t) * 0.3,
+      Math.cos(t * 1.3) * 0.3,
+      Math.cos(t * 1.7) * 0.3
+    )
+  })
+  return <MarchingCube ref={ref} strength={0.35} subtract={12} />
+}
+
+function Scene() {
+  return (
+    <MarchingCubes resolution={50} maxPolyCount={20000}>
+      <meshStandardMaterial color="hotpink" roughness={0.1} />
+      <Ball speed={1} offset={0} />
+      <Ball speed={1.3} offset={2} />
+      <Ball speed={0.7} offset={4} />
+    </MarchingCubes>
+  )
+}
+```
+
+### Coloured metaballs
+
+```jsx
+import { Color } from 'three'
+
+<MarchingCubes resolution={40} enableColors>
+  <meshStandardMaterial vertexColors roughness={0.3} />
+  <MarchingCube strength={0.5} color={new Color('#ff0080')} position={[0.3, 0, 0]} />
+  <MarchingCube strength={0.5} color={new Color('#0080ff')} position={[-0.3, 0, 0]} />
+</MarchingCubes>
+```
+
+### Using a floor plane
+
+```jsx
+<MarchingCubes resolution={50} maxPolyCount={20000}>
+  <meshStandardMaterial color="white" />
+  <MarchingCube strength={0.5} subtract={12} position={[0, 0.2, 0]} />
+  <MarchingPlane planeType="y" strength={0.5} subtract={12} />
+</MarchingCubes>
+```
+
+<Tip>
+  Keep `resolution` at `28` during development for fast iteration, then increase it to `50`–`80` for final renders. Each doubling of `resolution` increases computation roughly eightfold.
+</Tip>

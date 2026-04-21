@@ -1,0 +1,91 @@
+---
+title: "Svg: Render SVG vector graphics as 3D flat meshes"
+description: "Loads SVG files or inline SVG strings as flat Three.js meshes in React Three Fiber via SVGLoader, with separate fill material and stroke mesh props."
+---
+
+`<Svg>` wraps Three.js's `SVGLoader` to render vector graphics as flat 3D geometry in your scene. Each SVG path is converted into one or more `ShapeGeometry` meshes for fills and stroke geometry for outlines. The component is Suspense-based and suspends until the SVG data has been fetched and parsed.
+
+<Note>
+  SVG coordinates are inverted on the Y axis (`scale={[1, -1, 1]}`) to match Three.js's coordinate system, where Y points up. This means the rendered result should match how the SVG appears in a browser.
+</Note>
+
+## Props
+
+<ParamField path="src" type="string" required>
+  A URL pointing to an SVG file, or a raw SVG string. If the value starts with `<svg`, it is treated as inline SVG data; otherwise it is fetched as a URL.
+</ParamField>
+
+<ParamField path="skipFill" type="boolean">
+  When `true`, fill shapes are not rendered.
+</ParamField>
+
+<ParamField path="skipStrokes" type="boolean">
+  When `true`, stroke paths are not rendered.
+</ParamField>
+
+<ParamField path="fillMaterial" type="ThreeElements['meshBasicMaterial']">
+  Props spread onto each fill mesh's `<meshBasicMaterial>`. Use to override colour, opacity, blending, and other material properties for all fills.
+</ParamField>
+
+<ParamField path="strokeMaterial" type="ThreeElements['meshBasicMaterial']">
+  Props spread onto each stroke mesh's `<meshBasicMaterial>`. Use to override stroke rendering properties globally.
+</ParamField>
+
+<ParamField path="fillMeshProps" type="ThreeElements['mesh']">
+  Props spread onto each fill `<mesh>` element. Use to set `renderOrder`, `castShadow`, or other mesh-level properties.
+</ParamField>
+
+<ParamField path="strokeMeshProps" type="ThreeElements['mesh']">
+  Props spread onto each stroke `<mesh>` element.
+</ParamField>
+
+All other props are forwarded to the root `<object3D>` group, so you can position, rotate, and scale the entire SVG.
+
+## Usage
+
+### SVG from URL
+
+```jsx
+import { Suspense } from 'react'
+import { Svg } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <Svg src="/icons/logo.svg" scale={0.01} position={[-1, 1, 0]} />
+    </Suspense>
+  )
+}
+```
+
+### Inline SVG string
+
+```jsx
+const svgMarkup = `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="40" fill="hotpink" />
+  </svg>
+`
+
+<Svg src={svgMarkup} scale={0.005} />
+```
+
+### Fills only (no strokes)
+
+```jsx
+<Svg src="/icons/map.svg" skipStrokes scale={0.01} />
+```
+
+### Override fill material
+
+```jsx
+<Svg
+  src="/icons/icon.svg"
+  fillMaterial={{ color: 'white', opacity: 0.8 }}
+  scale={0.01}
+/>
+```
+
+<Tip>
+  SVG units map directly to Three.js world units before the scale prop is applied. A 500×500 SVG viewBox will produce geometry spanning 500 units. Use `scale={0.01}` or similar to bring the result into a reasonable world-unit range.
+</Tip>

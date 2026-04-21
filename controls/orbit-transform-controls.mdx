@@ -1,0 +1,181 @@
+---
+title: "OrbitControls and TransformControls for R3F"
+description: "OrbitControls adds orbit/pan/zoom to any camera. TransformControls attaches a translate/rotate/scale gizmo to any scene object."
+---
+
+drei wraps two of the most commonly used Three.js control helpers — `OrbitControls` for camera navigation and `TransformControls` for in-scene object manipulation — as declarative React components built on `three-stdlib`.
+
+## OrbitControls
+
+`OrbitControls` enables the camera to orbit around a target, pan, and zoom. It extends the Three.js `OrbitControlsImpl` from `three-stdlib` and integrates with the fiber render loop automatically.
+
+```jsx
+import { OrbitControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial />
+      </mesh>
+      <OrbitControls />
+    </>
+  )
+}
+```
+
+### Props
+
+<ParamField path="makeDefault" type="boolean">
+  Set this instance as the default controls on `state.controls`. Other drei components (like `GizmoHelper`) read from this. Default: `false`.
+</ParamField>
+
+<ParamField path="camera" type="Camera">
+  The camera to control. Defaults to the scene's default camera.
+</ParamField>
+
+<ParamField path="domElement" type="HTMLElement">
+  The DOM element to attach pointer events to. Defaults to the canvas.
+</ParamField>
+
+<ParamField path="enableDamping" type="boolean">
+  Enables inertial damping. Default: `true`.
+</ParamField>
+
+<ParamField path="regress" type="boolean">
+  Calls `performance.regress()` while the user is interacting to temporarily lower DPR. Pairs well with `AdaptiveDpr`. Default: `false`.
+</ParamField>
+
+<ParamField path="target" type="Vector3">
+  The point the camera orbits around.
+</ParamField>
+
+<ParamField path="keyEvents" type="boolean | HTMLElement">
+  Enable keyboard controls for panning. Pass an element or `true` to use the canvas. Default: `false`.
+</ParamField>
+
+<ParamField path="onChange" type="(e?) => void">
+  Fires on every camera change.
+</ParamField>
+
+<ParamField path="onStart" type="(e?) => void">
+  Fires when interaction starts.
+</ParamField>
+
+<ParamField path="onEnd" type="(e?) => void">
+  Fires when interaction ends.
+</ParamField>
+
+All other `OrbitControlsImpl` properties (like `minDistance`, `maxPolarAngle`, `autoRotate`, etc.) are forwarded.
+
+<Tip>
+  Set `makeDefault` on `OrbitControls` so that `GizmoHelper` and `CameraShake` can automatically read the active controls.
+</Tip>
+
+---
+
+## TransformControls
+
+`TransformControls` attaches a gizmo to a scene object, letting users translate, rotate, or scale it directly in the viewport. Wrap the target object as a child or pass it via the `object` prop.
+
+```jsx
+import { TransformControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <TransformControls mode="translate">
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial />
+      </mesh>
+    </TransformControls>
+  )
+}
+```
+
+### Using the `object` ref prop
+
+```jsx
+import { useRef } from 'react'
+import { TransformControls } from '@react-three/drei'
+
+function Scene() {
+  const meshRef = useRef()
+  return (
+    <>
+      <mesh ref={meshRef}>
+        <sphereGeometry />
+        <meshStandardMaterial color="hotpink" />
+      </mesh>
+      <TransformControls object={meshRef} mode="rotate" />
+    </>
+  )
+}
+```
+
+### Props
+
+<ParamField path="object" type="Object3D | RefObject<Object3D>">
+  The object to control. Alternatively, pass a child element.
+</ParamField>
+
+<ParamField path="mode" type='"translate" | "rotate" | "scale"'>
+  The active transformation mode. Default: `"translate"`.
+</ParamField>
+
+<ParamField path="space" type='"world" | "local"'>
+  Whether transformations are in world or local space. Default: `"world"`.
+</ParamField>
+
+<ParamField path="size" type="number">
+  Scale of the gizmo handle. Default: `1`.
+</ParamField>
+
+<ParamField path="showX" type="boolean">
+  Show the X axis handle. Default: `true`.
+</ParamField>
+
+<ParamField path="showY" type="boolean">
+  Show the Y axis handle. Default: `true`.
+</ParamField>
+
+<ParamField path="showZ" type="boolean">
+  Show the Z axis handle. Default: `true`.
+</ParamField>
+
+<ParamField path="translationSnap" type="number | null">
+  Snap translation to this grid size.
+</ParamField>
+
+<ParamField path="rotationSnap" type="number | null">
+  Snap rotation to this angle (radians).
+</ParamField>
+
+<ParamField path="scaleSnap" type="number | null">
+  Snap scale to this increment.
+</ParamField>
+
+<ParamField path="makeDefault" type="boolean">
+  Register as `state.controls`. Default: `false`.
+</ParamField>
+
+<ParamField path="onChange" type="(e?) => void">
+  Fires during drag.
+</ParamField>
+
+<ParamField path="onMouseDown" type="(e?) => void">
+  Fires on drag start.
+</ParamField>
+
+<ParamField path="onMouseUp" type="(e?) => void">
+  Fires on drag end.
+</ParamField>
+
+<ParamField path="onObjectChange" type="(e?) => void">
+  Fires when the controlled object changes.
+</ParamField>
+
+<Warning>
+  `TransformControls` temporarily disables `OrbitControls` (or any `makeDefault` controls) while dragging to prevent camera movement during transforms.
+</Warning>

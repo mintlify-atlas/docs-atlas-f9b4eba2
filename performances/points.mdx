@@ -1,0 +1,144 @@
+---
+title: "Points: declarative particle systems in React Three Fiber"
+description: "Render large numbers of points in a single draw call using a declarative instance API or raw Float32Array buffers for maximum throughput."
+---
+
+`Points` provides two ways to render a large number of particles efficiently. The **instance API** lets you declare individual `<Point>` components with position, color, and size as React props, and uses the same context-based buffer approach as `Instances`. The **buffer API** accepts raw `Float32Array` data for position, color, and size, giving you full control over update frequency and making it suitable for cases where you compute point data outside of React — for example, in a physics simulation or procedural generator.
+
+## Instance API
+
+Declare points declaratively when you need per-point event handling or want to drive positions from React state:
+
+```jsx
+import { Points, Point } from '@react-three/drei'
+
+function Particles() {
+  return (
+    <Points limit={500}>
+      <pointsMaterial vertexColors size={0.05} />
+      <Point position={[0, 1, 0]} color="hotpink" />
+      <Point position={[1, 0, 0]} color="cyan" size={0.1} />
+      <Point
+        position={[-1, -1, 0]}
+        color="white"
+        onClick={(e) => console.log('clicked', e)}
+        onPointerOver={(e) => console.log('hovered', e)}
+      />
+    </Points>
+  )
+}
+```
+
+## Buffer API
+
+Pass a `Float32Array` directly to `positions` for high-performance updates. This bypasses the React reconciler loop and updates the GPU buffer every frame via `useFrame`.
+
+```jsx
+import { Points } from '@react-three/drei'
+import { useMemo } from 'react'
+
+function ParticleCloud({ count = 5000 }) {
+  const positions = useMemo(() => {
+    const arr = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      arr[i * 3 + 0] = (Math.random() - 0.5) * 10
+      arr[i * 3 + 1] = (Math.random() - 0.5) * 10
+      arr[i * 3 + 2] = (Math.random() - 0.5) * 10
+    }
+    return arr
+  }, [count])
+
+  return (
+    <Points positions={positions}>
+      <pointsMaterial size={0.05} color="white" />
+    </Points>
+  )
+}
+```
+
+With colors and sizes:
+
+```jsx
+<Points positions={positionsBuffer} colors={colorsBuffer} sizes={sizesBuffer}>
+  <pointsMaterial vertexColors sizeAttenuation />
+</Points>
+```
+
+## Props
+
+### Points (instance mode)
+
+<ParamField path="limit" type="number" default="1000">
+  Maximum number of point instances. Sets the size of the underlying position,
+  color, and size buffer arrays.
+</ParamField>
+
+<ParamField path="range" type="number">
+  Draw range override. Limits how many points are rendered without unmounting
+  instances.
+</ParamField>
+
+### Points (buffer mode)
+
+`Points` switches to buffer mode automatically when the `positions` prop is a `Float32Array`.
+
+<ParamField path="positions" type="Float32Array" required>
+  Flat array of point positions. Stride is controlled by the `stride` prop
+  (default 3 for XYZ). The array is uploaded to the GPU with
+  `DynamicDrawUsage` and marked as `needsUpdate` every frame.
+</ParamField>
+
+<ParamField path="colors" type="Float32Array">
+  Optional per-point colors as a flat array. Must match the same stride and
+  count as `positions`.
+</ParamField>
+
+<ParamField path="sizes" type="Float32Array">
+  Optional per-point sizes. One value per point (stride 1).
+</ParamField>
+
+<ParamField path="stride" type="2 | 3" default="3">
+  Number of components per point in the position and color arrays. Use `2`
+  for 2D point clouds.
+</ParamField>
+
+### Point
+
+<ParamField path="position" type="Vector3">
+  Position of this point in the parent `Points` local space.
+</ParamField>
+
+<ParamField path="color" type="Color">
+  Per-point color. Accepts any value that `THREE.Color` accepts.
+</ParamField>
+
+<ParamField path="size" type="number" default="0">
+  Per-point size override. The default `pointsMaterial` size is used when
+  this is `0`.
+</ParamField>
+
+## Choosing between APIs
+
+<Columns cols={2}>
+  <Card title="Instance API" icon="layers">
+    Best when you have fewer than a few thousand points and need React-driven
+    updates, event handlers, or want to mount/unmount points conditionally.
+  </Card>
+  <Card title="Buffer API" icon="bolt">
+    Best for large particle systems (10k+) where positions are computed in a
+    loop or updated from an external simulation. Zero reconciler overhead.
+  </Card>
+</Columns>
+
+<Warning>
+  The buffer API marks geometry attributes as `needsUpdate` every frame even
+  if the data has not changed. If your particle positions are static, compute
+  them once in a `useMemo` and consider disabling the update loop by using
+  the Three.js `Points` object directly.
+</Warning>
+
+<Tip>
+  When using the instance API with per-point events, set `raycaster.params.Points.threshold`
+  to a value appropriate for your point size. The default threshold of 1 world
+  unit can cause unexpected large hit areas.
+</Tip>

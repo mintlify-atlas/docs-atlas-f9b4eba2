@@ -1,0 +1,171 @@
+---
+title: "shaderMaterial: Custom Shader Material Factory"
+description: "Create reusable THREE.ShaderMaterial classes with typed uniform getter/setters and React Three Fiber JSX element support via extend."
+---
+
+`shaderMaterial` is a factory function that creates a `THREE.ShaderMaterial` subclass from a uniform object, a vertex shader string, and a fragment shader string. Each key in the uniform object is automatically exposed as a getter/setter property on the resulting class instance, so you can read and write uniform values directly without going through the `.uniforms` map. The returned class also carries a static `key` property — a UUID — that you can wire to React's `key` prop to trigger hot-reload when the shader source changes.
+
+## Signature
+
+```ts
+function shaderMaterial<U extends Uniforms>(
+  uniforms: U,
+  vertexShader: string,
+  fragmentShader: string,
+  onInit?: (material?: ShaderMaterial & U) => void
+): ConstructorRepresentation<ShaderMaterial & U> & { key: string }
+```
+
+### Parameters
+
+<ParamField path="uniforms" type="object" required>
+  An object whose keys become uniform names. Values set the initial uniform values. Supported types include `number`, `boolean`, `THREE.Color`, `THREE.Vector2/3/4`, `THREE.Matrix3/4`, `THREE.Texture`, and typed arrays.
+</ParamField>
+
+<ParamField path="vertexShader" type="string" required>
+  GLSL vertex shader source. Uniform declarations are injected automatically; you do not need to redeclare them here.
+</ParamField>
+
+<ParamField path="fragmentShader" type="string" required>
+  GLSL fragment shader source.
+</ParamField>
+
+<ParamField path="onInit" type="(material) => void">
+  Optional callback invoked once after the material instance is constructed. Use it for any one-time setup that requires access to the material object.
+</ParamField>
+
+## Usage
+
+### Defining and using a custom shader
+
+```jsx
+import * as THREE from 'three'
+import { extend } from '@react-three/fiber'
+import { shaderMaterial } from '@react-three/drei'
+
+const ColorShiftMaterial = shaderMaterial(
+  // Uniforms with initial values
+  { time: 0, color: new THREE.Color(0.2, 0.0, 0.1) },
+  // Vertex shader
+  /*glsl*/`
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  // Fragment shader
+  /*glsl*/`
+    uniform float time;
+    uniform vec3 color;
+    varying vec2 vUv;
+    void main() {
+      gl_FragColor.rgba = vec4(0.5 + 0.3 * sin(vUv.yxx + time) + color, 1.0);
+    }
+  `
+)
+
+// Register with React Three Fiber's element catalog
+extend({ ColorShiftMaterial })
+
+function ShaderMesh() {
+  return (
+    <mesh>
+      <planeGeometry args={[2, 2]} />
+      <colorShiftMaterial color="hotpink" time={1} />
+    </mesh>
+  )
+}
+```
+
+### Animating uniforms with useFrame
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+
+function AnimatedMesh() {
+  const matRef = useRef()
+
+  useFrame(({ clock }) => {
+    if (matRef.current) {
+      matRef.current.time = clock.elapsedTime
+    }
+  })
+
+  return (
+    <mesh>
+      <planeGeometry args={[2, 2]} />
+      <colorShiftMaterial ref={matRef} color="#3399ff" />
+    </mesh>
+  )
+}
+```
+
+### Imperative usage without JSX
+
+```js
+const material = new ColorShiftMaterial({ color: new THREE.Color('hotpink') })
+material.time = 1.5
+mesh.material = material
+```
+
+### Hot-reload with the static key
+
+Wire the static `key` property to React's `key` to force the material to remount (and the shader to recompile) when your shader module is updated in development:
+
+```jsx
+import { ColorShiftMaterial } from './ColorShiftMaterial'
+
+extend({ ColorShiftMaterial })
+
+function Scene() {
+  return (
+    <mesh>
+      <planeGeometry />
+      <colorShiftMaterial key={ColorShiftMaterial.key} color="tomato" time={0} />
+    </mesh>
+  )
+}
+```
+
+### Shader material in a separate file
+
+```tsx
+// ColorShiftMaterial.ts
+import * as THREE from 'three'
+import { shaderMaterial } from '@react-three/drei'
+
+export const ColorShiftMaterial = shaderMaterial(
+  { time: 0, color: new THREE.Color(1, 0, 0) },
+  `varying vec2 vUv;
+   void main() {
+     vUv = uv;
+     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+   }`,
+  `uniform float time;
+   uniform vec3 color;
+   varying vec2 vUv;
+   void main() {
+     gl_FragColor = vec4(color * (0.5 + 0.5 * sin(vUv.x * 10.0 + time)), 1.0);
+   }`
+)
+
+// Augment R3F's element types so <colorShiftMaterial /> is type-safe
+declare module '@react-three/fiber' {
+  interface ThreeElements {
+    colorShiftMaterial: typeof ColorShiftMaterial & {
+      time?: number
+      color?: THREE.Color | string
+    }
+  }
+}
+```
+
+<Note>
+  After calling `extend({ ColorShiftMaterial })`, the JSX element name is the camelCase version of the class name: `<colorShiftMaterial />`. This follows the same convention as all other Three.js elements in React Three Fiber.
+</Note>
+
+<Tip>
+  Uniform values set through constructor arguments or props are deep-cloned via `THREE.UniformsUtils.clone` to prevent instances from sharing the same uniform objects. This means each mesh using the material gets independent uniform state.
+</Tip>

@@ -1,0 +1,138 @@
+---
+title: "Sampler: Scatter InstancedMesh on mesh surfaces"
+description: "Places InstancedMesh instances on any mesh surface using MeshSurfaceSampler. Supports weight attributes and per-instance transform callbacks."
+---
+
+`<Sampler>` combines `MeshSurfaceSampler` from `three-stdlib` with `InstancedMesh` to distribute instances across a mesh surface. On mount (and whenever its inputs change), it samples the source mesh, runs an optional `transform` callback for each sample, and writes the resulting matrices to the instanced mesh. The sampled mesh and instanced mesh can be provided as direct children or via explicit refs.
+
+<Note>
+  Sampling runs synchronously on the main thread during a `useLayoutEffect`. For large instance counts, consider deferring the component render until after your scene's initial frame.
+</Note>
+
+## Props
+
+<ParamField path="count" type="number" default="16">
+  Number of sample points to generate. This also constrains the instance count used from the `InstancedMesh`.
+</ParamField>
+
+<ParamField path="mesh" type="React.RefObject<Mesh>">
+  Reference to the source `Mesh` to sample. When omitted, `<Sampler>` uses the first `Mesh` child it finds.
+</ParamField>
+
+<ParamField path="instances" type="React.RefObject<InstancedMesh>">
+  Reference to the `InstancedMesh` to populate. When omitted, `<Sampler>` uses the first `InstancedMesh` child it finds.
+</ParamField>
+
+<ParamField path="weight" type="string">
+  The name of a geometry attribute to use as a sampling weight. Regions with higher values in this attribute will receive more samples. Corresponds to `MeshSurfaceSampler.setWeightAttribute`.
+</ParamField>
+
+<ParamField path="transform" type="TransformFn">
+  A callback invoked for each sample point. It receives a `TransformPayload` and an index, and should mutate `payload.dummy` to set the instance transform. The dummy's matrix is updated automatically after the callback returns.
+
+  ```ts
+  type TransformPayload = {
+    dummy: Object3D      // mutate this to set the instance transform
+    sampledMesh: Mesh    // the source mesh
+    position: Vector3    // sample position
+    normal: Vector3      // surface normal at the sample
+    color: Color         // vertex colour at the sample
+  }
+  ```
+</ParamField>
+
+## Usage
+
+### Declarative children
+
+Place a `<mesh>` and an `<instancedMesh>` as direct children. `<Sampler>` discovers them automatically.
+
+```jsx
+import { Sampler } from '@react-three/drei'
+
+function ScatterSpheres() {
+  return (
+    <Sampler count={500}>
+      {/* source mesh */}
+      <mesh>
+        <sphereGeometry args={[2, 32, 32]} />
+        <meshStandardMaterial visible={false} />
+      </mesh>
+
+      {/* instances to scatter */}
+      <instancedMesh args={[null, null, 500]}>
+        <sphereGeometry args={[0.05]} />
+        <meshStandardMaterial color="hotpink" />
+      </instancedMesh>
+    </Sampler>
+  )
+}
+```
+
+### Custom transform callback
+
+Use `transform` to orient instances along the surface normal, scale randomly, or apply any per-instance logic.
+
+```jsx
+function transformPoint({ dummy, position, normal }) {
+  dummy.position.copy(position)
+  dummy.lookAt(position.clone().add(normal))
+  const scale = 0.5 + Math.random() * 0.5
+  dummy.scale.setScalar(scale)
+}
+
+<Sampler count={200} transform={transformPoint}>
+  <mesh>
+    <torusGeometry args={[2, 0.5, 32, 64]} />
+  </mesh>
+  <instancedMesh args={[null, null, 200]}>
+    <coneGeometry args={[0.05, 0.2, 8]} />
+    <meshStandardMaterial color="gold" />
+  </instancedMesh>
+</Sampler>
+```
+
+### Explicit mesh and instances refs
+
+Use refs when the source mesh and instances are defined elsewhere in the scene graph.
+
+```jsx
+const { nodes } = useGLTF('/model.glb')
+const meshRef = useRef(nodes.terrain)
+const instancesRef = useRef()
+
+return (
+  <>
+    <primitive object={nodes.terrain} />
+
+    <instancedMesh ref={instancesRef} args={[null, null, 300]}>
+      <cylinderGeometry args={[0.02, 0.02, 0.3]} />
+      <meshStandardMaterial color="green" />
+    </instancedMesh>
+
+    <Sampler mesh={meshRef} instances={instancesRef} count={300} />
+  </>
+)
+```
+
+### Weight-based sampling
+
+Provide a geometry attribute name to bias sampling towards high-value regions. This requires the source geometry to have a matching attribute.
+
+```jsx
+<Sampler count={400} weight="density">
+  <mesh>
+    <bufferGeometry>
+      {/* geometry with a 'density' attribute */}
+    </bufferGeometry>
+  </mesh>
+  <instancedMesh args={[null, null, 400]}>
+    <sphereGeometry args={[0.05]} />
+    <meshStandardMaterial />
+  </instancedMesh>
+</Sampler>
+```
+
+<Tip>
+  The `useSurfaceSampler` hook is also exported and gives you access to the raw `InstancedBufferAttribute` result if you need to drive custom geometry rather than an `InstancedMesh`.
+</Tip>

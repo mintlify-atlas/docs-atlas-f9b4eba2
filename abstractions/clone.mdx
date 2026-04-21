@@ -1,0 +1,114 @@
+---
+title: "Clone: Declarative Object3D cloning for scene reuse"
+description: "Declarative abstraction around THREE.Object3D.clone for sharing geometries and materials across scene instances, with deep clone, inject, and shadow helpers."
+---
+
+`<Clone>` creates a shallow copy of any existing `THREE.Object3D`—a group, mesh, or hierarchy loaded from a GLTF—and renders it as declarative JSX. The cloned object continues to share the original's geometries and materials by default, making it memory-efficient for instancing static objects. You can opt in to deep-cloning materials or geometries, inject props or children into every mesh within the hierarchy, and control shadow casting on all descendant meshes at once.
+
+<Note>
+  When the source object contains a `SkinnedMesh`, `<Clone>` automatically uses `SkeletonUtils.clone` to correctly duplicate the skeleton and bone bindings.
+</Note>
+
+## Props
+
+<ParamField path="object" type="THREE.Object3D | THREE.Object3D[]" required>
+  The object or array of objects to clone. Commonly a node from `useGLTF`.
+</ParamField>
+
+<ParamField path="deep" type="boolean | 'materialsOnly' | 'geometriesOnly'" default="false">
+  Controls deep cloning of sub-resources:
+  - `false` — shares the original geometries and materials (default).
+  - `true` — clones both geometries and materials.
+  - `'materialsOnly'` — clones only materials, shares geometries.
+  - `'geometriesOnly'` — clones only geometries, shares materials.
+</ParamField>
+
+<ParamField path="keys" type="string[]">
+  An explicit list of property keys to shallow-copy from each child object. Defaults to a comprehensive set including `geometry`, `material`, `position`, `rotation`, `scale`, `visible`, `castShadow`, `receiveShadow`, and skeleton-related properties.
+</ParamField>
+
+<ParamField path="inject" type="ThreeElements['mesh'] | React.ReactNode | ((object: THREE.Object3D) => React.ReactNode)">
+  Props or JSX to inject into every mesh within the cloned hierarchy:
+  - Object — spread as additional mesh props.
+  - React node — placed as a child of every mesh.
+  - Function — called with each `Object3D` and its return value placed as a child, allowing conditional injection.
+</ParamField>
+
+<ParamField path="castShadow" type="boolean">
+  Sets `castShadow` to `true` on every `Mesh` within the cloned hierarchy.
+</ParamField>
+
+<ParamField path="receiveShadow" type="boolean">
+  Sets `receiveShadow` to `true` on every `Mesh` within the cloned hierarchy.
+</ParamField>
+
+<ParamField path="children" type="React.ReactNode">
+  Children placed within the cloned object's group. For arrays of objects, children are placed inside the wrapping group.
+</ParamField>
+
+## Usage
+
+### Basic clone from GLTF
+
+```jsx
+import { useGLTF, Clone } from '@react-three/drei'
+
+function Scene() {
+  const { nodes } = useGLTF('/model.glb')
+
+  return (
+    <>
+      <Clone object={nodes.Chair} position={[-1, 0, 0]} />
+      <Clone object={nodes.Chair} position={[1, 0, 0]} rotation={[0, Math.PI, 0]} />
+    </>
+  )
+}
+```
+
+### Cloning multiple objects
+
+Pass an array to clone several objects into a single group.
+
+```jsx
+<Clone object={[nodes.TableTop, nodes.TableLegs]} />
+```
+
+### Deep material clone
+
+Use `deep="materialsOnly"` when you need to modify material properties on the clone without affecting the original.
+
+```jsx
+<Clone object={nodes.Car} deep="materialsOnly" />
+```
+
+### Injecting a material into every mesh
+
+```jsx
+<Clone
+  object={nodes.Tree}
+  inject={<meshStandardMaterial color="limegreen" />}
+/>
+```
+
+### Conditional injection
+
+```jsx
+<Clone
+  object={nodes.Building}
+  inject={(object) =>
+    object.name === 'Windows'
+      ? <meshStandardMaterial color="lightblue" transparent opacity={0.6} />
+      : null
+  }
+/>
+```
+
+### Shadow helpers
+
+```jsx
+<Clone object={nodes.Rock} castShadow receiveShadow />
+```
+
+<Tip>
+  `<Clone>` is the right choice when you need a few copies of a complex GLTF hierarchy. For hundreds or thousands of identical objects, use `<Instances>` or `THREE.InstancedMesh` for better GPU performance.
+</Tip>

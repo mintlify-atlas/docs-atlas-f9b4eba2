@@ -1,0 +1,163 @@
+---
+title: 'CatmullRomLine: smooth interpolated curve through points'
+description: 'Renders a Line2 interpolated through an array of control points using THREE.CatmullRomCurve3, with optional looping and per-vertex color interpolation.'
+---
+
+`CatmullRomLine` draws a smooth continuous curve that passes through every point in the `points` array using `THREE.CatmullRomCurve3` interpolation. Unlike Bézier variants, no separate control points are needed — the curve automatically fits through each provided point. The `curveType` and `tension` props let you tune how tightly the curve hugs corners. When `vertexColors` is provided with fewer entries than `segments + 1`, colors are linearly interpolated along the curve.
+
+## Props
+
+<ParamField path="points" type="Array<Vector3 | [number, number, number]>" required>
+  Control points the curve passes through. Requires at least two points. Accepts `THREE.Vector3` instances or three-element arrays.
+</ParamField>
+
+<ParamField path="closed" type="boolean" default="false">
+  When `true`, the curve forms a closed loop by connecting the last point back to the first.
+</ParamField>
+
+<ParamField path="curveType" type="'centripetal' | 'chordal' | 'catmullrom'" default="'centripetal'">
+  Parameterization algorithm used by `THREE.CatmullRomCurve3`. `'centripetal'` avoids cusps and self-intersections and is the default. `'catmullrom'` uses the `tension` prop.
+</ParamField>
+
+<ParamField path="tension" type="number" default="0.5">
+  Tension for the `'catmullrom'` curve type. Values closer to `0` produce looser curves; values closer to `1` produce tighter curves. Has no effect on `'centripetal'` or `'chordal'` types.
+</ParamField>
+
+<ParamField path="segments" type="number" default="20">
+  Total number of subdivisions across the full curve. Higher values produce smoother output.
+</ParamField>
+
+<ParamField path="color" type="ColorRepresentation" default="0xffffff">
+  Line color. Ignored when `vertexColors` is provided.
+</ParamField>
+
+<ParamField path="lineWidth" type="number" default="1">
+  Line width in pixels.
+</ParamField>
+
+<ParamField path="dashed" type="boolean" default="false">
+  Enables dashed rendering.
+</ParamField>
+
+<ParamField path="vertexColors" type="Array<Color | [number, number, number] | [number, number, number, number]>">
+  Per-vertex color array. If the length does not match `segments + 1`, colors are linearly interpolated between the provided entries to produce a matching number of samples.
+</ParamField>
+
+All additional props from `Line` (`THREE.Line2` and `LineMaterial`) are also accepted.
+
+## Usage
+
+<CodeGroup>
+
+```jsx Path through waypoints
+import { CatmullRomLine } from '@react-three/drei'
+
+function Path() {
+  const points = [
+    [-3, 0, 0],
+    [-1, 2, 0],
+    [1, -1, 0],
+    [3, 1, 0],
+  ]
+
+  return (
+    <CatmullRomLine
+      points={points}
+      color="white"
+      lineWidth={2}
+      segments={60}
+    />
+  )
+}
+```
+
+```jsx Closed loop
+import { CatmullRomLine } from '@react-three/drei'
+
+function ClosedPath() {
+  const points = [
+    [0, 1, 0],
+    [1, 0, 0],
+    [0, -1, 0],
+    [-1, 0, 0],
+  ]
+
+  return (
+    <CatmullRomLine
+      points={points}
+      closed
+      color="cyan"
+      lineWidth={1.5}
+      segments={80}
+    />
+  )
+}
+```
+
+```jsx Gradient vertex colors
+import { CatmullRomLine } from '@react-three/drei'
+
+function GradientCurve() {
+  const points = [
+    [-3, 0, 0],
+    [-1, 1, 0],
+    [1, -1, 0],
+    [3, 0, 0],
+  ]
+
+  // Fewer color entries than segments — interpolated automatically
+  const colors = [
+    [1, 0, 0],   // red at start
+    [0, 1, 0],   // green at mid
+    [0, 0, 1],   // blue at end
+  ]
+
+  return (
+    <CatmullRomLine
+      points={points}
+      vertexColors={colors}
+      lineWidth={3}
+      segments={60}
+    />
+  )
+}
+```
+
+```jsx Tension comparison
+import { CatmullRomLine } from '@react-three/drei'
+
+const pts = [[-2, 0, 0], [-1, 1, 0], [0, -1, 0], [1, 1, 0], [2, 0, 0]]
+
+function TensionDemo() {
+  return (
+    <>
+      {/* Tight curve */}
+      <CatmullRomLine
+        points={pts}
+        curveType="catmullrom"
+        tension={0.9}
+        color="red"
+        lineWidth={1}
+        position={[0, 1, 0]}
+      />
+      {/* Loose curve */}
+      <CatmullRomLine
+        points={pts}
+        curveType="catmullrom"
+        tension={0.1}
+        color="blue"
+        lineWidth={1}
+        position={[0, -1, 0]}
+      />
+    </>
+  )
+}
+```
+
+</CodeGroup>
+
+<Note>
+  When `closed` is `true` and `vertexColors` is provided, the first color is
+  appended to the end of the color array internally so the gradient wraps
+  smoothly back to the starting hue.
+</Note>

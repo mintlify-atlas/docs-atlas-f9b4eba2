@@ -1,0 +1,71 @@
+---
+title: "ScreenSpace and ScreenSizer: camera-fixed 3D elements"
+description: "ScreenSpace keeps children fixed to the camera view. ScreenSizer scales children to a consistent pixel size regardless of camera distance."
+---
+
+drei provides two components for attaching 3D objects to the camera or viewport: `ScreenSpace` for camera-locked positioning and `ScreenSizer` for pixel-stable scaling.
+
+## ScreenSpace
+
+`ScreenSpace` makes its children follow the camera's position and orientation every frame. Objects inside always appear at the same location relative to the screen, like a HUD element rendered in world space.
+
+```jsx
+import { ScreenSpace } from '@react-three/drei'
+
+function HudLabel() {
+  return (
+    <ScreenSpace depth={-5}>
+      <mesh position={[-1.5, 1, 0]}>
+        <planeGeometry args={[1, 0.3]} />
+        <meshBasicMaterial color="white" />
+      </mesh>
+    </ScreenSpace>
+  )
+}
+```
+
+### Props
+
+<ParamField path="depth" type="number">
+  Distance from the camera along the view axis. Default: `-1`.
+</ParamField>
+
+All other `group` props are forwarded.
+
+<Note>
+  For full DOM-overlay HUD elements, consider `Html`. `ScreenSpace` is for when you need actual Three.js geometry pinned to the screen.
+</Note>
+
+---
+
+## ScreenSizer
+
+`ScreenSizer` scales its children so they maintain a consistent apparent pixel size regardless of camera distance. Internally it computes a scale factor from the camera's projection matrix and the object's world position.
+
+```jsx
+import { ScreenSizer } from '@react-three/drei'
+
+function ConstantSizeLabel() {
+  return (
+    <ScreenSizer scale={64}>
+      {/* This box will appear ~64px wide regardless of zoom */}
+      <mesh>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial color="yellow" />
+      </mesh>
+    </ScreenSizer>
+  )
+}
+```
+
+### Props
+
+<ParamField path="scale" type="number">
+  Pixel scale factor. A value of `1` results in roughly 1-pixel-sized objects. Default: `1`.
+</ParamField>
+
+All other `object3D` props are forwarded.
+
+<Tip>
+  `ScreenSizer` is useful for labels, markers, and annotations that should remain legible at any zoom level.
+</Tip>

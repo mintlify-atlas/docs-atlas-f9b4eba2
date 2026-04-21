@@ -1,0 +1,149 @@
+---
+title: 'Cloud: Instanced Particle-Based Volumetric Clouds'
+description: 'Instanced particle cloud volumes with animated growth, opacity fade, depth sorting, and full per-cloud control over color, size, and distribution.'
+---
+
+`Cloud` renders a volumetric cloud made from instanced billboard planes textured with a cloud sprite. Multiple `<Cloud>` instances inside a `<Clouds>` provider are batched into a single draw call. Each cloud independently controls its segment count, bounding volume, animation speed, color, and fade distance. The provider handles instancing, depth sorting, and material sharing.
+
+<Note>
+  `Cloud` uses `Suspense` internally because it loads a cloud texture via `useTexture`. Wrap your component tree in a `Suspense` boundary.
+</Note>
+
+## Clouds props
+
+<ParamField path="texture" type="string">
+  URL for the cloud sprite texture. Defaults to a hosted asset on `rawcdn.githack`.
+</ParamField>
+
+<ParamField path="limit" type="number" default="200">
+  Maximum total segment count across all `Cloud` children. Set this as tight as possible to save GPU memory.
+</ParamField>
+
+<ParamField path="range" type="number">
+  How many total segments to actually render. Defaults to the total across all children.
+</ParamField>
+
+<ParamField path="material" type="typeof THREE.Material" default="MeshLambertMaterial">
+  The base material class used for all cloud instances. Override to use `MeshBasicMaterial` for unlit clouds.
+</ParamField>
+
+<ParamField path="frustumCulled" type="boolean" default="true">
+  Whether the instanced mesh is frustum-culled as a whole.
+</ParamField>
+
+## Cloud props
+
+<ParamField path="seed" type="number" default="Math.random()">
+  Seed for the internal random number generator. Use a fixed value to get consistent cloud shapes across renders.
+</ParamField>
+
+<ParamField path="segments" type="number" default="20">
+  Number of billboard planes forming this cloud. More segments produce a denser, fuller cloud.
+</ParamField>
+
+<ParamField path="bounds" type="ReactThreeFiber.Vector3" default="[5, 1, 1]">
+  Bounding box dimensions within which segments are distributed. Larger values spread the cloud further.
+</ParamField>
+
+<ParamField path="concentrate" type="'random' | 'inside' | 'outside'" default="'inside'">
+  Controls how segment volume scales with distance from the center. `'inside'` makes edge segments smaller, producing a natural cloud shape.
+</ParamField>
+
+<ParamField path="scale" type="ReactThreeFiber.Vector3">
+  Overall scale of the cloud group.
+</ParamField>
+
+<ParamField path="volume" type="number" default="6">
+  Maximum volume (size) of individual cloud segments.
+</ParamField>
+
+<ParamField path="smallestVolume" type="number" default="0.25">
+  Minimum relative volume for distributed segments.
+</ParamField>
+
+<ParamField path="distribute" type="(cloud: CloudState, index: number) => { point: Vector3; volume?: number }">
+  Custom distribution function. Overrides the built-in placement logic. `point` x/y/z components should be in the range [-1, 1]; `volume` in [0, 1].
+</ParamField>
+
+<ParamField path="growth" type="number" default="4">
+  Scale factor for the animated growth pulse applied when `speed > 0`.
+</ParamField>
+
+<ParamField path="speed" type="number" default="0">
+  Animation speed. `0` disables animation. Higher values increase how quickly segments pulse and rotate.
+</ParamField>
+
+<ParamField path="fade" type="number" default="10">
+  Camera distance at which segments begin to fade out. Segments closer than this value are fully opaque.
+</ParamField>
+
+<ParamField path="opacity" type="number" default="1">
+  Opacity of the cloud segments.
+</ParamField>
+
+<ParamField path="color" type="ReactThreeFiber.Color" default="'white'">
+  Tint color applied to all segments of this cloud.
+</ParamField>
+
+## Usage
+
+### Single cloud
+
+Use `<Cloud>` standalone — it wraps itself in a `<Clouds>` provider automatically.
+
+```jsx
+import { Suspense } from 'react'
+import { Cloud } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <Cloud segments={40} bounds={[10, 2, 2]} volume={10} />
+    </Suspense>
+  )
+}
+```
+
+### Multiple clouds in a shared provider
+
+Group multiple clouds into one draw call with `<Clouds>`.
+
+```jsx
+import { Suspense } from 'react'
+import { Clouds, Cloud } from '@react-three/drei'
+import * as THREE from 'three'
+
+function Sky() {
+  return (
+    <Suspense fallback={null}>
+      <Clouds material={THREE.MeshBasicMaterial}>
+        <Cloud segments={40} bounds={[10, 2, 2]} volume={10} color="white" />
+        <Cloud seed={1} scale={2} volume={5} color="#ffccaa" fade={100} />
+        <Cloud seed={2} position={[15, 3, -10]} bounds={[8, 1, 1]} color="orange" opacity={0.8} />
+      </Clouds>
+    </Suspense>
+  )
+}
+```
+
+### Animated clouds
+
+Set `speed > 0` to make clouds slowly pulse and rotate.
+
+```jsx
+<Clouds>
+  <Cloud
+    speed={0.4}
+    growth={3}
+    segments={30}
+    bounds={[8, 2, 2]}
+    volume={8}
+    color="#e0e8ff"
+    fade={80}
+  />
+</Clouds>
+```
+
+<Tip>
+  Set `limit` on `<Clouds>` to the exact total of all `segments` across your clouds. Allocating extra segments wastes GPU memory since the instanced buffer is fixed at `limit` size.
+</Tip>

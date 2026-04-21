@@ -1,0 +1,127 @@
+---
+title: "Trail: MeshLine motion trails for moving 3D objects"
+description: "Renders a MeshLine-based motion trail following any Object3D in React Three Fiber, with configurable width, length, decay, stride, interval, and attenuation."
+---
+
+`<Trail>` attaches a smooth, mesh-based motion trail to any `Object3D` in your scene. Each frame it records the target's world position (or local position when `local` is `true`) and extrudes a `MeshLine` through the point history. The result is a ribbon-like trail that tapers and fades as older points decay. You can fully customise the trail geometry by supplying a `<meshLineMaterial>` child.
+
+<Note>
+  `<Trail>` renders the trail mesh into the root scene via a portal so it is not affected by parent transforms. This ensures the trail is always visible regardless of where in the scene graph the target object lives.
+</Note>
+
+## Props
+
+<ParamField path="color" type="ColorRepresentation" default="'hotpink'">
+  Colour of the trail line.
+</ParamField>
+
+<ParamField path="width" type="number" default="0.2">
+  Base width of the trail in world units.
+</ParamField>
+
+<ParamField path="length" type="number" default="1">
+  Number of trail segments retained. Higher values produce longer trails but use more memory.
+</ParamField>
+
+<ParamField path="decay" type="number" default="1">
+  How quickly old points are removed each frame. Higher values shorten the visible trail.
+</ParamField>
+
+<ParamField path="local" type="boolean" default="false">
+  When `true`, uses the target's local position instead of its world position. Useful for objects that move within a transformed parent.
+</ParamField>
+
+<ParamField path="stride" type="number" default="0">
+  Minimum distance between successive recorded points. Increase to reduce noise when the object moves slowly.
+</ParamField>
+
+<ParamField path="interval" type="number" default="1">
+  Number of frames to skip between point recordings. A value of `2` records every other frame.
+</ParamField>
+
+<ParamField path="target" type="React.RefObject<Object3D>">
+  Explicit reference to the target object. When not provided, `<Trail>` uses the first `Object3D` child it finds.
+</ParamField>
+
+<ParamField path="attenuation" type="(width: number) => number">
+  A function called for each point along the trail that returns the width at that position. Receives the normalised width and should return a width value. Use this to create tapered or custom-shaped trails.
+</ParamField>
+
+## Usage
+
+### Basic trail on a moving mesh
+
+Place a mesh inside `<Trail>` and it automatically becomes the tracked target.
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Trail } from '@react-three/drei'
+
+function Comet() {
+  const meshRef = useRef()
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime
+    meshRef.current.position.x = Math.sin(t) * 3
+    meshRef.current.position.y = Math.cos(t * 2) * 1.5
+  })
+
+  return (
+    <Trail width={0.3} length={8} color="cyan" attenuation={(t) => t * t}>
+      <mesh ref={meshRef}>
+        <sphereGeometry args={[0.1]} />
+        <meshBasicMaterial color="white" />
+      </mesh>
+    </Trail>
+  )
+}
+```
+
+### Using an external target ref
+
+```jsx
+const targetRef = useRef()
+
+return (
+  <>
+    <Trail target={targetRef} width={0.2} length={5} color="orange" />
+    <mesh ref={targetRef}>
+      <sphereGeometry args={[0.15]} />
+      <meshBasicMaterial color="white" />
+    </mesh>
+  </>
+)
+```
+
+### Custom material via meshLineMaterial child
+
+```jsx
+<Trail width={0.5} length={10}>
+  <mesh>
+    <sphereGeometry args={[0.1]} />
+    <meshBasicMaterial />
+  </mesh>
+  <meshLineMaterial color="red" lineWidth={0.05} />
+</Trail>
+```
+
+### Tapered trail with attenuation
+
+```jsx
+<Trail
+  color="white"
+  width={0.5}
+  length={12}
+  attenuation={(t) => t * t}  // quadratic taper from tail to head
+>
+  <mesh>
+    <sphereGeometry args={[0.1]} />
+    <meshBasicMaterial color="white" />
+  </mesh>
+</Trail>
+```
+
+<Tip>
+  For smooth trails on fast-moving objects, increase `length` and lower `decay`. For short, snappy trails, keep `length` low and raise `decay`.
+</Tip>

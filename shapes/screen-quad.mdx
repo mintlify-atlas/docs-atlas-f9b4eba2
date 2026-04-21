@@ -1,0 +1,111 @@
+---
+title: 'ScreenQuad: full-screen triangle for shader effects'
+description: 'A single oversized triangle covering the entire viewport, optimized for full-screen fragment shaders, raymarching, and custom post-processing passes.'
+---
+
+`ScreenQuad` renders a single triangle whose vertices extend just beyond the viewport boundaries (`[-1, -1]`, `[3, -1]`, `[-1, 3]`), guaranteeing full-screen coverage with no wasted fill rate from a diagonal split. The geometry has an infinite bounding sphere so it is never frustum-culled. It accepts any `THREE.Mesh` prop and is designed to hold a custom shader material as a child.
+
+Using a triangle instead of two triangles (a quad) avoids the overdraw artifact where the diagonal edge of a quad can produce visible differences in interpolation along the hypotenuse — particularly relevant for effects that depend on smooth UV gradients.
+
+## Props
+
+`ScreenQuad` accepts all `THREE.Mesh` props except `args` (the geometry is fixed).
+
+<ParamField path="children" type="ReactNode">
+  Attach a shader material here. The component provides no default material.
+</ParamField>
+
+## Usage
+
+<CodeGroup>
+
+```jsx Fullscreen shader
+import { ScreenQuad } from '@react-three/drei'
+import { shaderMaterial } from '@react-three/drei'
+import { extend, useFrame } from '@react-three/fiber'
+import { useRef } from 'react'
+
+const GradientMaterial = shaderMaterial(
+  { uTime: 0 },
+  // vertex shader
+  `void main() {
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+  }`,
+  // fragment shader
+  `uniform float uTime;
+  void main() {
+    vec2 uv = gl_FragCoord.xy / vec2(800.0, 600.0);
+    gl_FragColor = vec4(uv, sin(uTime) * 0.5 + 0.5, 1.0);
+  }`
+)
+
+extend({ GradientMaterial })
+
+function FullscreenEffect() {
+  const matRef = useRef()
+
+  useFrame(({ clock }) => {
+    if (matRef.current) matRef.current.uTime = clock.getElapsedTime()
+  })
+
+  return (
+    <ScreenQuad>
+      <gradientMaterial ref={matRef} />
+    </ScreenQuad>
+  )
+}
+```
+
+```jsx Raymarching setup
+import { ScreenQuad } from '@react-three/drei'
+import { shaderMaterial } from '@react-three/drei'
+import { extend, useFrame, useThree } from '@react-three/fiber'
+import { useRef } from 'react'
+
+const RaymarchMaterial = shaderMaterial(
+  { uTime: 0, uResolution: [800, 600] },
+  `void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+  `uniform float uTime;
+   uniform vec2 uResolution;
+   void main() {
+     vec2 uv = (gl_FragCoord.xy - uResolution * 0.5) / uResolution.y;
+     // ... raymarching logic
+     gl_FragColor = vec4(uv, 0.0, 1.0);
+   }`
+)
+
+extend({ RaymarchMaterial })
+
+function Raymarch() {
+  const matRef = useRef()
+  const { size } = useThree()
+
+  useFrame(({ clock }) => {
+    if (matRef.current) {
+      matRef.current.uTime = clock.getElapsedTime()
+      matRef.current.uResolution = [size.width, size.height]
+    }
+  })
+
+  return (
+    <ScreenQuad>
+      <raymarchMaterial ref={matRef} />
+    </ScreenQuad>
+  )
+}
+```
+
+</CodeGroup>
+
+<Note>
+  Place `ScreenQuad` inside an orthographic camera scene or use it as a
+  background pass. The triangle's positions are in clip space (`xy` only), so
+  the vertex shader should output `vec4(position.xy, 0.0, 1.0)` directly
+  without applying a projection matrix.
+</Note>
+
+<Tip>
+  For post-processing effects that need depth or color from the main render,
+  use `useFBO` from Drei to render the scene to a texture and sample it inside
+  your `ScreenQuad` material.
+</Tip>

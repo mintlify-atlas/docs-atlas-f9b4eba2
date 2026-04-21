@@ -1,0 +1,162 @@
+---
+title: 'Center: Offset Children to Their Bounding Box Center'
+description: 'Offsets children by half their bounding box to center them at the origin. Supports per-axis alignment, edge snapping, and an onCentered callback.'
+---
+
+`Center` measures the bounding box of its children and translates them so that the group is centered at the local origin. Alignment flags allow you to snap the content to specific edges — for example `top` places the bottom face of the bounding box at `y = 0`. The `onCentered` callback fires in the `useLayoutEffect` phase and reports full bounding box metrics, making it easy to scale or position content relative to its measured size.
+
+## Props
+
+<ParamField path="top" type="boolean">
+  Aligns the top of the bounding box to `y = 0`, placing content below the origin.
+</ParamField>
+
+<ParamField path="bottom" type="boolean">
+  Aligns the bottom of the bounding box to `y = 0`, placing content above the origin.
+</ParamField>
+
+<ParamField path="left" type="boolean">
+  Aligns the left edge to `x = 0`, placing content to the right of the origin.
+</ParamField>
+
+<ParamField path="right" type="boolean">
+  Aligns the right edge to `x = 0`, placing content to the left of the origin.
+</ParamField>
+
+<ParamField path="front" type="boolean">
+  Aligns the front face to `z = 0`, placing content behind the origin.
+</ParamField>
+
+<ParamField path="back" type="boolean">
+  Aligns the back face to `z = 0`, placing content in front of the origin.
+</ParamField>
+
+<ParamField path="disable" type="boolean">
+  Disables centering on all three axes simultaneously.
+</ParamField>
+
+<ParamField path="disableX" type="boolean">
+  Disables centering on the X axis only.
+</ParamField>
+
+<ParamField path="disableY" type="boolean">
+  Disables centering on the Y axis only.
+</ParamField>
+
+<ParamField path="disableZ" type="boolean">
+  Disables centering on the Z axis only.
+</ParamField>
+
+<ParamField path="precise" type="boolean" default="true">
+  Passed to `Box3.setFromObject`. When `true`, traverses the entire object hierarchy for an accurate bounding box. Set to `false` for better performance on large scenes.
+</ParamField>
+
+<ParamField path="object" type="THREE.Object3D | null">
+  An external `Object3D` to compute the bounding box from, instead of the component's own children.
+</ParamField>
+
+<ParamField path="cacheKey" type="any" default="0">
+  Change this value to force the bounding box to be recalculated. Useful when children change asynchronously.
+</ParamField>
+
+<ParamField path="onCentered" type="(props: OnCenterCallbackProps) => void">
+  Callback fired after measurement in the `useLayoutEffect` phase. Receives full bounding box data.
+</ParamField>
+
+### OnCenterCallbackProps
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `parent` | `THREE.Object3D` | The parent object above `<Center>`. |
+| `container` | `THREE.Object3D` | The outermost group of `<Center>`. |
+| `width` | `number` | Bounding box width. |
+| `height` | `number` | Bounding box height. |
+| `depth` | `number` | Bounding box depth. |
+| `boundingBox` | `THREE.Box3` | The full bounding box. |
+| `boundingSphere` | `THREE.Sphere` | The bounding sphere. |
+| `center` | `THREE.Vector3` | Center point of the bounding box. |
+| `verticalAlignment` | `number` | Y offset applied for vertical alignment. |
+| `horizontalAlignment` | `number` | X offset applied for horizontal alignment. |
+| `depthAlignment` | `number` | Z offset applied for depth alignment. |
+
+## Usage
+
+### Center at origin
+
+Center a model so its geometric center sits at `[0, 0, 0]`.
+
+```jsx
+import { Center } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Center>
+      <mesh>
+        <torusKnotGeometry />
+        <meshStandardMaterial color="coral" />
+      </mesh>
+    </Center>
+  )
+}
+```
+
+### Bottom-align for ground placement
+
+Use `top` to place content so the bottom of the bounding box rests on the XZ plane.
+
+```jsx
+<Center top>
+  <Model />
+</Center>
+```
+
+### Edge alignment
+
+Combine flags to align to any corner or edge.
+
+```jsx
+{/* Bottom-left corner at origin */}
+<Center top left>
+  <mesh>
+    <boxGeometry args={[3, 2, 1]} />
+    <meshStandardMaterial />
+  </mesh>
+</Center>
+```
+
+### Scale to viewport height using onCentered
+
+Measure the model and scale it to fill the viewport height.
+
+```jsx
+import { useThree } from '@react-three/fiber'
+import { Center } from '@react-three/drei'
+
+function ScaledModel() {
+  const viewport = useThree((state) => state.viewport)
+
+  return (
+    <Center
+      onCentered={({ container, height }) => {
+        container.scale.setScalar(viewport.height / height)
+      }}
+    >
+      <Model />
+    </Center>
+  )
+}
+```
+
+### Disable specific axes
+
+Center on X and Z but leave Y untouched.
+
+```jsx
+<Center disableY>
+  <LandscapeMesh />
+</Center>
+```
+
+<Tip>
+  Use `cacheKey` when your children load asynchronously. Pass a value that changes when the content is ready (such as a loading boolean) to trigger a fresh measurement.
+</Tip>

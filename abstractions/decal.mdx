@@ -1,0 +1,133 @@
+---
+title: "Decal: Project textures onto mesh surfaces in 3D"
+description: "Wraps Three.js DecalGeometry to project textures or materials onto parent meshes in React Three Fiber, with auto surface-normal orientation and debug mode."
+---
+
+`<Decal>` is a declarative abstraction around Three.js's `DecalGeometry`. It projects geometry onto a parent mesh surface and can accept any material as a child, making it straightforward to apply logos, bullet holes, scratches, or overlays without modifying the underlying mesh. When no rotation is specified, the decal automatically orients itself to the surface normal at the nearest vertex to its position.
+
+<Note>
+  The decal box must intersect the target mesh surface; if it misses the surface the decal will not be visible. Use the `debug` prop to visualise the bounding box while setting up placement.
+</Note>
+
+## Props
+
+<ParamField path="position" type="Vector3">
+  Position of the decal in local space relative to the target mesh.
+</ParamField>
+
+<ParamField path="rotation" type="Euler | number">
+  Rotation of the decal. Accepts a full `Euler` for manual orientation, or a single number (radians) to spin the decal around the surface normal. When omitted, the decal automatically faces the parent mesh's centre.
+</ParamField>
+
+<ParamField path="scale" type="Vector3">
+  Scale of the decal bounding box. Controls the area of the mesh surface covered.
+</ParamField>
+
+<ParamField path="map" type="THREE.Texture">
+  Convenience prop to set a texture on the auto-created `meshBasicMaterial`. Use when you do not need a custom material child.
+</ParamField>
+
+<ParamField path="mesh" type="React.RefObject<THREE.Mesh>">
+  Explicit reference to the target mesh. Required when the `<Decal>` is not a direct child of the mesh it should project onto.
+</ParamField>
+
+<ParamField path="debug" type="boolean">
+  Renders a wireframe bounding box and axes helper to visualise the decal volume.
+</ParamField>
+
+<ParamField path="depthTest" type="boolean" default="false">
+  Enables depth testing on the decal material.
+</ParamField>
+
+<ParamField path="polygonOffsetFactor" type="number" default="-10">
+  Polygon offset factor applied to the auto-created material, ensuring the decal renders on top of the surface.
+</ParamField>
+
+## Usage
+
+### Decal as a direct child
+
+The most common pattern: place `<Decal>` inside a `<mesh>` and it uses the mesh as its surface.
+
+```jsx
+import { useTexture } from '@react-three/drei'
+import { Decal } from '@react-three/drei'
+
+function DecalExample() {
+  const texture = useTexture('/logo.png')
+
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshStandardMaterial color="white" />
+      <Decal
+        position={[0, 0, 1]}
+        rotation={[0, 0, 0]}
+        scale={[0.5, 0.5, 0.5]}
+      >
+        <meshBasicMaterial
+          map={texture}
+          polygonOffset
+          polygonOffsetFactor={-1}
+          transparent
+        />
+      </Decal>
+    </mesh>
+  )
+}
+```
+
+### Using the map convenience prop
+
+When a custom material is not needed, pass the texture directly via `map`.
+
+```jsx
+<mesh>
+  <boxGeometry />
+  <meshStandardMaterial color="gray" />
+  <Decal map={texture} position={[0, 0.5, 0.5]} scale={0.4} />
+</mesh>
+```
+
+### Decal with spin rotation
+
+Pass a single number as `rotation` to spin around the auto-computed surface normal.
+
+```jsx
+<Decal position={[0, 0, 1]} rotation={Math.PI / 4} scale={0.5}>
+  <meshBasicMaterial map={texture} transparent />
+</Decal>
+```
+
+### External mesh reference
+
+Use `mesh` when the `<Decal>` is not a direct child of its target.
+
+```jsx
+const meshRef = useRef()
+
+return (
+  <>
+    <mesh ref={meshRef}>
+      <sphereGeometry />
+      <meshStandardMaterial />
+    </mesh>
+
+    <Decal mesh={meshRef} position={[0, 1, 0]} scale={0.5}>
+      <meshBasicMaterial map={texture} transparent />
+    </Decal>
+  </>
+)
+```
+
+### Debug mode
+
+```jsx
+<Decal debug position={[0, 0, 1]} scale={0.5}>
+  <meshBasicMaterial map={texture} transparent />
+</Decal>
+```
+
+<Warning>
+  `<Decal>` throws if its parent is not a `THREE.Mesh` and no `mesh` prop is provided. Always ensure it is placed inside a mesh or that the `mesh` ref points to a valid `THREE.Mesh`.
+</Warning>

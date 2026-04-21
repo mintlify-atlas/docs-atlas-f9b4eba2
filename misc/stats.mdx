@@ -1,0 +1,110 @@
+---
+title: "Display frame rate and memory stats with Stats"
+description: "Stats and StatsGl add performance overlays to your React Three Fiber scene, tracking FPS, render time, and memory usage with minimal setup."
+---
+
+`Stats` mounts a [`stats.js`](https://github.com/mrdoob/stats.js/) overlay to the DOM and hooks it into the React Three Fiber render loop automatically. `StatsGl` is a GPU-aware alternative built on [`stats-gl`](https://github.com/RenaudRohlinger/stats-gl) that reports WebGL-specific metrics alongside frame timing. Both components render nothing into the Three.js scene — their output is purely DOM-based.
+
+## Stats
+
+The `Stats` component appends the panel to `document.body` by default and selects the FPS panel. It cleans up the DOM element and unsubscribes from the render loop when unmounted.
+
+### Usage
+
+```jsx
+import { Stats } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial />
+      </mesh>
+      <Stats />
+    </>
+  )
+}
+```
+
+### Props
+
+<ParamField path="showPanel" type="number" default="0">
+  Index of the panel to display on load. `0` = FPS, `1` = ms per frame, `2` = MB memory usage.
+</ParamField>
+
+<ParamField path="className" type="string">
+  One or more space-separated CSS class names added to the stats overlay element.
+</ParamField>
+
+<ParamField path="parent" type="React.RefObject<HTMLElement>">
+  Mounts the overlay inside the referenced element instead of `document.body`. Useful for containing the panel inside a custom HUD.
+</ParamField>
+
+### Mounting to a custom container
+
+```jsx
+import { useRef, useEffect } from 'react'
+import { Stats } from '@react-three/drei'
+
+function StatsContainer() {
+  const containerRef = useRef(document.createElement('div'))
+
+  useEffect(() => {
+    const el = containerRef.current
+    el.id = 'stats-panel'
+    document.body.appendChild(el)
+    return () => document.body.removeChild(el)
+  }, [])
+
+  return <Stats parent={containerRef} />
+}
+```
+
+---
+
+## StatsGl
+
+`StatsGl` uses the `stats-gl` library which initialises a WebGL renderer extension to measure GPU timing alongside CPU-side frame metrics. It exposes the underlying DOM element via `ref`.
+
+### Usage
+
+```jsx
+import { StatsGl } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <mesh>
+        <sphereGeometry />
+        <meshStandardMaterial />
+      </mesh>
+      <StatsGl />
+    </>
+  )
+}
+```
+
+### Props
+
+<ParamField path="className" type="string">
+  One or more space-separated CSS class names added to the stats-gl DOM element.
+</ParamField>
+
+<ParamField path="parent" type="React.RefObject<HTMLElement>">
+  Mounts the overlay inside the referenced element instead of `document.body`.
+</ParamField>
+
+<ParamField path="id" type="string">
+  Sets the `id` attribute on the stats-gl DOM element.
+</ParamField>
+
+<ParamField path="clearStatsGlStyle" type="boolean">
+  Removes all inline styles from the stats-gl root element when `true`, giving you full control via CSS.
+</ParamField>
+
+All options accepted by the `stats-gl` constructor can also be passed as additional props (e.g. `logsPerSecond`, `samplesLog`, `samplesGraph`).
+
+<Tip>
+  Use `StatsGl` when you need GPU timing in addition to CPU-side FPS. Use the lighter `Stats` when you only need a quick FPS/memory overlay without any WebGL extensions.
+</Tip>

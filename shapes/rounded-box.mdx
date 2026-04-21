@@ -1,0 +1,107 @@
+---
+title: 'RoundedBox: box geometry with smooth beveled corners'
+description: 'A box mesh with smoothly rounded corners built from extrusion. Control radius, bevel segments, and crease angle without custom geometry code.'
+---
+
+`RoundedBox` renders a `THREE.Mesh` whose geometry is constructed by extruding a rounded 2D shape, producing a box with beveled edges. The rounding is controlled by `radius`, while `smoothness` and `bevelSegments` determine how many curve segments approximate each arc. Normals are sharpened along creases using `toCreasedNormals` from `three-stdlib`, keeping flat faces visually crisp.
+
+`RoundedBoxGeometry` is also exported separately so you can attach the geometry to your own mesh — useful with libraries like `@react-three/csg`.
+
+## Props
+
+<ParamField path="args" type="[width?, height?, depth?]" default="[1, 1, 1]">
+  Dimensions of the box. Tuple of `[width, height, depth]`.
+</ParamField>
+
+<ParamField path="radius" type="number" default="0.05">
+  Radius of the rounded corners. Clamped to half the smallest dimension to avoid geometry artifacts.
+</ParamField>
+
+<ParamField path="smoothness" type="number" default="4">
+  Number of curve segments used to approximate each rounded corner arc. Higher values produce smoother edges.
+</ParamField>
+
+<ParamField path="bevelSegments" type="number" default="4">
+  Number of bevel segments on the extruded depth edges. Set to `0` to remove beveling — the texture will then cover the full geometry surface.
+</ParamField>
+
+<ParamField path="steps" type="number" default="1">
+  Number of extrusion steps along the depth axis.
+</ParamField>
+
+<ParamField path="creaseAngle" type="number" default="0.4">
+  Faces meeting at an angle greater than this value (in radians) receive hard normals; smaller angles are smoothed. Passed to `toCreasedNormals`.
+</ParamField>
+
+All additional props are spread onto the underlying `THREE.Mesh` element.
+
+## Usage
+
+<CodeGroup>
+
+```jsx Basic usage
+import { RoundedBox } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <RoundedBox
+      args={[1, 1, 1]}
+      radius={0.05}
+      smoothness={4}
+    >
+      <meshPhongMaterial color="#f3f3f3" />
+    </RoundedBox>
+  )
+}
+```
+
+```jsx Wireframe preview
+import { RoundedBox } from '@react-three/drei'
+
+function WireframeBox() {
+  return (
+    <RoundedBox
+      args={[2, 1, 0.5]}
+      radius={0.1}
+      smoothness={6}
+      bevelSegments={4}
+      creaseAngle={0.4}
+    >
+      <meshPhongMaterial color="#f3f3f3" wireframe />
+    </RoundedBox>
+  )
+}
+```
+
+```jsx RoundedBoxGeometry with custom mesh
+import { RoundedBoxGeometry } from '@react-three/drei'
+
+// Useful with @react-three/csg or when you need geometry access
+function CustomMesh() {
+  return (
+    <mesh>
+      <RoundedBoxGeometry
+        args={[1, 1, 1]}
+        radius={0.05}
+        smoothness={4}
+        bevelSegments={4}
+        creaseAngle={0.4}
+      />
+      <meshStandardMaterial color="royalblue" />
+    </mesh>
+  )
+}
+```
+
+</CodeGroup>
+
+<Tip>
+  If you animate `args` every frame, memoize the `[width, height, depth]` tuple
+  with `React.useMemo` to avoid rebuilding the geometry on every render.
+</Tip>
+
+<Note>
+  Setting `bevelSegments={0}` removes the bevel from the depth edges. The
+  material texture will then be mapped across the entire surface, which can be
+  useful for UI card elements or flat panels.
+</Note>

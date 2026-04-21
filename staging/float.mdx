@@ -1,0 +1,116 @@
+---
+title: 'Float: Hovering and Floating Animation for Objects'
+description: 'Applies a continuous sine-wave hover and rotation animation to child objects. Control speed, float range, rotation intensity, and demand-mode invalidation.'
+---
+
+`Float` wraps any R3F content in a group that continuously animates with a gentle hover and rotation. The motion is driven by `Math.sin` and `Math.cos` on `clock.elapsedTime`, giving each instance an independent random phase offset. All animation parameters are live props, meaning they can be updated reactively without remounting.
+
+## Props
+
+<ParamField path="enabled" type="boolean" default="true">
+  When `false`, all animation is paused and the group returns to its neutral position.
+</ParamField>
+
+<ParamField path="speed" type="number" default="1">
+  Overall animation speed multiplier. Higher values make the float cycle faster. Set to `0` to pause animation without disabling the component.
+</ParamField>
+
+<ParamField path="rotationIntensity" type="number" default="1">
+  Multiplier for the XYZ rotation applied each frame. Set to `0` to disable rotation while keeping the vertical float.
+</ParamField>
+
+<ParamField path="floatIntensity" type="number" default="1">
+  Multiplier applied to the Y position offset. Works in combination with `floatingRange` to scale the vertical travel.
+</ParamField>
+
+<ParamField path="floatingRange" type="[number?, number?]" default="[-0.1, 0.1]">
+  The minimum and maximum Y positions the object floats between. The raw sine output is remapped to this range using `THREE.MathUtils.mapLinear`.
+</ParamField>
+
+<ParamField path="autoInvalidate" type="boolean" default="false">
+  When `true`, calls `state.invalidate()` each frame. Required to keep the animation running when the canvas `frameloop` is set to `"demand"`.
+</ParamField>
+
+## Usage
+
+### Basic float
+
+The simplest usage — wrap any object to make it hover.
+
+```jsx
+import { Float } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Float speed={2} floatIntensity={0.5}>
+      <mesh>
+        <icosahedronGeometry />
+        <meshStandardMaterial color="gold" metalness={0.8} roughness={0.2} />
+      </mesh>
+    </Float>
+  )
+}
+```
+
+### Float with custom range and no rotation
+
+Control the exact vertical travel and remove rotation for a purely vertical bob.
+
+```jsx
+<Float
+  speed={1.5}
+  rotationIntensity={0}
+  floatIntensity={1}
+  floatingRange={[-0.3, 0.3]}
+>
+  <Model />
+</Float>
+```
+
+### Multiple floats at different speeds
+
+Give each object a different speed for natural, desynchronized motion.
+
+```jsx
+function FloatingIslands() {
+  return (
+    <>
+      <Float speed={1} floatIntensity={0.4} floatingRange={[-0.2, 0.2]}>
+        <Island position={[-4, 0, 0]} />
+      </Float>
+      <Float speed={1.6} floatIntensity={0.6} floatingRange={[-0.3, 0.1]}>
+        <Island position={[0, 0, 0]} />
+      </Float>
+      <Float speed={0.8} floatIntensity={0.3} floatingRange={[-0.1, 0.25]}>
+        <Island position={[4, 0, 0]} />
+      </Float>
+    </>
+  )
+}
+```
+
+### On-demand rendering
+
+When the canvas uses `frameloop="demand"`, enable `autoInvalidate` to keep the animation ticking.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { Float } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas frameloop="demand">
+      <Float autoInvalidate speed={1}>
+        <mesh>
+          <torusGeometry />
+          <meshStandardMaterial color="violet" />
+        </mesh>
+      </Float>
+    </Canvas>
+  )
+}
+```
+
+<Note>
+  Each `Float` instance uses a random phase offset seeded on mount. Two identical `<Float speed={1}>` wrappers will animate out of sync with each other, which is usually desirable.
+</Note>

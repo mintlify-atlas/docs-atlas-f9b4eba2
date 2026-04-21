@@ -1,0 +1,109 @@
+---
+title: "AsciiRenderer: DOM-layer ASCII art render effect"
+description: "Overlays any React Three Fiber scene with a DOM-layer ASCII effect, replacing the WebGL canvas with styled characters using three-stdlib's AsciiEffect."
+---
+
+`<AsciiRenderer>` places a DOM overlay on top of the WebGL canvas and redraws the scene as a grid of ASCII characters each frame. It uses Three.js's `AsciiEffect` from `three-stdlib`, which takes over the render loop at the specified render index. The underlying canvas is hidden while the effect is mounted and restored when it unmounts, making it easy to toggle the effect on and off.
+
+<Note>
+  `<AsciiRenderer>` inserts a DOM element as a sibling of the canvas. It hides the canvas element with `opacity: 0` while mounted. The canvas continues to exist and respond to pointer events at its original position.
+</Note>
+
+## Props
+
+<ParamField path="renderIndex" type="number" default="1">
+  Priority index passed to `useFrame`. Controls when the ASCII effect renders relative to other render subscribers. Higher values render later.
+</ParamField>
+
+<ParamField path="bgColor" type="string" default="'black'">
+  CSS background colour of the ASCII overlay. Accepts any valid CSS colour value, including `'transparent'`.
+</ParamField>
+
+<ParamField path="fgColor" type="string" default="'white'">
+  CSS colour applied to the character text.
+</ParamField>
+
+<ParamField path="characters" type="string" default="' .:-+*=%@#'">
+  The set of characters used to represent brightness levels. Characters should be ordered from least to most visually dense.
+</ParamField>
+
+<ParamField path="invert" type="boolean" default="true">
+  When `true`, darker scene areas map to denser characters. Set to `false` to invert the mapping.
+</ParamField>
+
+<ParamField path="color" type="boolean" default="false">
+  When `true`, each character is coloured to approximate the scene colour at that position. This is significantly more expensive than monochrome mode.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="0.15">
+  Level of detail controlling character cell size. Lower values produce larger, blockier characters; higher values produce finer detail. Typical range: `0.1`–`0.3`.
+</ParamField>
+
+## Usage
+
+### Basic ASCII renderer
+
+Add `<AsciiRenderer>` anywhere inside a `<Canvas>` to activate the effect.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { AsciiRenderer } from '@react-three/drei'
+
+function App() {
+  return (
+    <Canvas>
+      <color attach="background" args={['black']} />
+      <ambientLight />
+      <mesh>
+        <torusKnotGeometry />
+        <meshStandardMaterial color="white" />
+      </mesh>
+      <AsciiRenderer />
+    </Canvas>
+  )
+}
+```
+
+### Coloured ASCII with custom characters
+
+```jsx
+<AsciiRenderer
+  characters=" ░▒▓█"
+  color
+  bgColor="transparent"
+  fgColor="lime"
+  resolution={0.2}
+/>
+```
+
+### Light-on-dark (non-inverted)
+
+```jsx
+<AsciiRenderer
+  invert={false}
+  bgColor="white"
+  fgColor="black"
+/>
+```
+
+### Toggling the effect
+
+Because `<AsciiRenderer>` removes the DOM element and restores the canvas on unmount, you can conditionally render it to toggle the effect.
+
+```jsx
+function Scene({ ascii }) {
+  return (
+    <>
+      <mesh>
+        <boxGeometry />
+        <meshNormalMaterial />
+      </mesh>
+      {ascii && <AsciiRenderer bgColor="black" fgColor="white" />}
+    </>
+  )
+}
+```
+
+<Tip>
+  Set `bgColor="transparent"` and position the ASCII overlay over a coloured page background for a retro terminal look without modifying your Three.js scene background.
+</Tip>

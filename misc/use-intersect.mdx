@@ -1,0 +1,79 @@
+---
+title: "Track frustum visibility with useIntersect"
+description: "useIntersect provides a cheap per-frame callback fired when a mesh enters or exits the frustum, with no raycasting or bounding-box math required."
+---
+
+`useIntersect` returns a ref you attach to any rendered object. Each frame it checks whether Three.js called `onBeforeRender` on that object — which only happens when the object is inside the camera frustum. The callback receives `true` when the object becomes visible and `false` when it leaves the frustum.
+
+<Note>
+  `useIntersect` relies on `THREE.Object3D.onBeforeRender`, which Three.js only calls on objects that are actually rendered: meshes, lines, sprites, and similar. It does not fire for `group`, `object3D`, `bone`, or other non-rendered nodes.
+</Note>
+
+## Signature
+
+```tsx
+function useIntersect<T extends Object3D>(
+  onChange: (visible: boolean) => void
+): React.RefObject<T>
+```
+
+## Parameters
+
+<ParamField path="onChange" type="(visible: boolean) => void" required>
+  Called once per frame when the object's frustum visibility changes. Receives `true` when the object enters the frustum and `false` when it exits.
+</ParamField>
+
+## Return value
+
+A `React.RefObject` to attach to the target `Object3D`.
+
+## Usage
+
+```jsx
+import { useRef } from 'react'
+import { useIntersect } from '@react-three/drei'
+
+function TrackedMesh() {
+  const ref = useIntersect((visible) => {
+    console.log('in frustum:', visible)
+  })
+
+  return (
+    <mesh ref={ref}>
+      <boxGeometry />
+      <meshStandardMaterial />
+    </mesh>
+  )
+}
+```
+
+### Pausing animation when out of view
+
+```jsx
+import { useRef, useState } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useIntersect } from '@react-three/drei'
+
+function AnimatedSphere() {
+  const inView = useRef(false)
+  const meshRef = useIntersect((visible) => {
+    inView.current = visible
+  })
+
+  useFrame(({ clock }) => {
+    if (!inView.current || !meshRef.current) return
+    meshRef.current.rotation.y = clock.getElapsedTime()
+  })
+
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[0.5, 32, 32]} />
+      <meshStandardMaterial color="tomato" />
+    </mesh>
+  )
+}
+```
+
+<Tip>
+  `useIntersect` is significantly cheaper than raycasting or manually computing bounding sphere intersections because it piggybacks on Three.js's own render culling. Use it for lazy-loading content, pausing animations, or triggering effects when objects scroll into view.
+</Tip>

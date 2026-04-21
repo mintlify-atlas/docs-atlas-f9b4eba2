@@ -1,0 +1,85 @@
+---
+title: "MeshWobbleMaterial: Animated Wobble Shader for Meshes"
+description: "Animate geometry with a continuous sinusoidal rotation wobble. Extends MeshStandardMaterial and accepts all its props alongside speed and factor."
+---
+
+`MeshWobbleMaterial` modifies the vertex shader of `THREE.MeshStandardMaterial` to apply a time-driven sinusoidal rotation along the Y-axis of each vertex. The result is a smooth, continuous wobbling or waving motion across the geometry. Because it derives from `MeshStandardMaterial`, it supports all standard PBR properties — roughness, metalness, normal maps — alongside its animation controls. The `time` uniform is advanced automatically each frame via `useFrame`, driven by the clock's elapsed time multiplied by `speed`.
+
+## Props
+
+<ParamField path="speed" type="number" default="1">
+  Multiplier applied to the elapsed clock time when advancing the internal `time` uniform. Higher values produce faster oscillation.
+</ParamField>
+
+<ParamField path="factor" type="number" default="1">
+  Amplitude of the wobble. At `0` the geometry is static; increasing the value exaggerates the deformation. Values above `2` produce strongly distorted meshes.
+</ParamField>
+
+All props accepted by `THREE.MeshStandardMaterial` (e.g. `color`, `roughness`, `metalness`, `map`) are also valid.
+
+## Usage
+
+### Basic wobbling box
+
+```jsx
+import { MeshWobbleMaterial } from '@react-three/drei'
+
+function WobblyBox() {
+  return (
+    <mesh>
+      <boxGeometry args={[1, 1, 1]} />
+      <MeshWobbleMaterial color="hotpink" factor={0.4} speed={2} />
+    </mesh>
+  )
+}
+```
+
+### Slow, subtle wave on a sphere
+
+```jsx
+<mesh>
+  <sphereGeometry args={[1, 64, 64]} />
+  <MeshWobbleMaterial
+    color="#00aaff"
+    roughness={0.3}
+    metalness={0.6}
+    factor={0.15}
+    speed={0.5}
+  />
+</mesh>
+```
+
+### Animated factor with useRef
+
+You can drive `factor` imperatively for interactive effects:
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { MeshWobbleMaterial } from '@react-three/drei'
+
+function PulseMesh() {
+  const matRef = useRef()
+
+  useFrame(({ clock }) => {
+    if (matRef.current) {
+      matRef.current.factor = 0.5 + 0.5 * Math.sin(clock.elapsedTime * 3)
+    }
+  })
+
+  return (
+    <mesh>
+      <torusGeometry args={[1, 0.3, 32, 100]} />
+      <MeshWobbleMaterial ref={matRef} color="orange" speed={1} />
+    </mesh>
+  )
+}
+```
+
+<Tip>
+  For high-subdivision geometry (sphere segments ≥ 64), lower `factor` values (0.1–0.3) produce the most natural-looking surface animation without visible tearing.
+</Tip>
+
+<Note>
+  `speed` controls how fast the clock time advances the wobble; it does not change the wave frequency directly. To get a standing still wobble at a particular phase, set `speed={0}` and drive the `time` uniform manually via a ref.
+</Note>

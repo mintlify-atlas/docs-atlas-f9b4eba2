@@ -1,0 +1,187 @@
+---
+title: "CameraControls: Full-featured camera controller for R3F"
+description: "A React Three Fiber wrapper around the camera-controls library, offering smooth orbit, dolly, truck, and transition animations with event callbacks."
+---
+
+`CameraControls` is a React Three Fiber wrapper around the [`camera-controls`](https://github.com/yomotsu/camera-controls) library. It provides smooth, physics-aware camera movement including orbit, dolly, truck, zoom, and animated transitions, with full event callback support. Unlike `OrbitControls`, it does not hard-stop at angular limits but eases into them, and it exposes a rich imperative API through a forwarded ref for programmatic camera manipulation.
+
+## Props
+
+<ParamField path="impl" type="typeof CameraControlsImpl">
+  An optional subclass of `CameraControlsImpl` to use instead of the default. Useful for overriding or extending camera behaviour.
+</ParamField>
+
+<ParamField path="camera" type="PerspectiveCamera | OrthographicCamera">
+  The camera to control. Defaults to the camera in R3F state.
+</ParamField>
+
+<ParamField path="domElement" type="HTMLElement">
+  The DOM element to attach pointer and wheel event listeners to. Defaults to the renderer's canvas element.
+</ParamField>
+
+<ParamField path="makeDefault" type="boolean">
+  When `true`, registers this instance as `controls` in R3F state so other components can access it via `useThree((s) => s.controls)`.
+</ParamField>
+
+<ParamField path="regress" type="boolean">
+  When `true`, calls `performance.regress()` during control interaction, which can lower the pixel ratio to maintain frame rate.
+</ParamField>
+
+<ParamField path="onControlStart" type="(e?: { type: 'controlstart' }) => void">
+  Fired when the user begins a control interaction.
+</ParamField>
+
+<ParamField path="onControl" type="(e?: { type: 'control' }) => void">
+  Fired continuously while the user is interacting.
+</ParamField>
+
+<ParamField path="onControlEnd" type="(e?: { type: 'controlend' }) => void">
+  Fired when the user ends a control interaction.
+</ParamField>
+
+<ParamField path="onTransitionStart" type="(e?: { type: 'transitionstart' }) => void">
+  Fired when a programmatic transition begins.
+</ParamField>
+
+<ParamField path="onUpdate" type="(e?: { type: 'update' }) => void">
+  Fired each frame while the camera is updating.
+</ParamField>
+
+<ParamField path="onWake" type="(e?: { type: 'wake' }) => void">
+  Fired when the controls wake from sleep (idle) state.
+</ParamField>
+
+<ParamField path="onRest" type="(e?: { type: 'rest' }) => void">
+  Fired when camera movement comes to rest.
+</ParamField>
+
+<ParamField path="onSleep" type="(e?: { type: 'sleep' }) => void">
+  Fired when the controls enter sleep (idle) state after resting.
+</ParamField>
+
+<Note>
+  `onStart`, `onEnd`, and `onChange` are deprecated aliases kept for `OrbitControls` compatibility. Prefer `onControlStart`, `onControlEnd`, and `onControl` respectively.
+</Note>
+
+## Basic usage
+
+```tsx
+import { CameraControls } from '@react-three/drei'
+
+export default function Scene() {
+  return (
+    <>
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial />
+      </mesh>
+      <CameraControls makeDefault />
+    </>
+  )
+}
+```
+
+## Controlling a specific camera
+
+If you need `CameraControls` to manage a camera other than the default, make the camera reactive so `CameraControls` mounts after the ref is populated:
+
+```tsx
+import { useState } from 'react'
+import { PerspectiveCamera, CameraControls } from '@react-three/drei'
+import * as THREE from 'three'
+
+export default function Scene() {
+  const [cam, setCam] = useState<THREE.PerspectiveCamera | null>(null)
+
+  return (
+    <>
+      <PerspectiveCamera ref={setCam} makeDefault position={[0, 2, 5]} />
+      {cam && <CameraControls camera={cam} />}
+    </>
+  )
+}
+```
+
+## Customising mouse and touch bindings
+
+Access the static `ACTION` map from `CameraControlsImpl` to remap input bindings:
+
+```tsx
+import { CameraControls, CameraControlsImpl } from '@react-three/drei'
+
+const { ACTION } = CameraControlsImpl
+
+export default function Scene() {
+  return (
+    <CameraControls
+      mouseButtons={{
+        left: ACTION.ROTATE,
+        middle: ACTION.DOLLY,
+        right: ACTION.TRUCK,
+        wheel: ACTION.DOLLY,
+      }}
+      touches={{
+        one: ACTION.TOUCH_ROTATE,
+        two: ACTION.TOUCH_DOLLY_TRUCK,
+        three: ACTION.TOUCH_DOLLY_TRUCK,
+      }}
+    />
+  )
+}
+```
+
+## Using a custom subclass
+
+Pass a custom subclass via the `impl` prop to override or extend default behaviour:
+
+```tsx
+import { CameraControls, CameraControlsImpl } from '@react-three/drei'
+
+class LoggingCameraControls extends CameraControlsImpl {
+  override rotate(...args: Parameters<CameraControlsImpl['rotate']>) {
+    console.log('rotate', ...args)
+    return super.rotate(...args)
+  }
+}
+
+export default function Scene() {
+  return <CameraControls impl={LoggingCameraControls} />
+}
+```
+
+## Imperative control via ref
+
+`CameraControls` forwards a ref typed as `CameraControlsImpl`, exposing the full programmatic API:
+
+```tsx
+import { useRef } from 'react'
+import { CameraControls, CameraControlsImpl } from '@react-three/drei'
+
+export default function Scene() {
+  const controlsRef = useRef<CameraControlsImpl>(null!)
+
+  function focusOrigin() {
+    controlsRef.current.setLookAt(5, 5, 5, 0, 0, 0, true)
+  }
+
+  return (
+    <>
+      <CameraControls ref={controlsRef} makeDefault />
+      <mesh onClick={focusOrigin}>
+        <boxGeometry />
+        <meshStandardMaterial />
+      </mesh>
+    </>
+  )
+}
+```
+
+<Tip>
+  `setLookAt`, `fitToBox`, `rotateTo`, and all other imperative methods come from the underlying `camera-controls` library. The second argument on most transition methods accepts a boolean to enable smooth animation. Refer to the [camera-controls documentation](https://github.com/yomotsu/camera-controls) for the full API.
+</Tip>
+
+## Breaking changes
+
+### v10.5.0
+
+This version bundles camera-controls v3. If you are upgrading from an earlier drei release, review the [v3 migration guide](https://github.com/yomotsu/camera-controls?tab=readme-ov-file#v3-migration-guide) for breaking changes in the underlying library.

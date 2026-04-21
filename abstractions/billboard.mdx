@@ -1,0 +1,79 @@
+---
+title: "Billboard: Camera-facing group with axis locking"
+description: "Wraps children in a group that always faces the active camera, with optional per-axis locking for constrained billboard effects in React Three Fiber."
+---
+
+`<Billboard>` wraps its children in a `<group>` that continuously updates its rotation every frame to face the camera. This is useful for labels, sprites, icons, or any 3D element that should always be readable regardless of camera orientation. Individual rotation axes can be locked so the billboard only rotates partially—for example, a cylindrical billboard that spins on Y but stays upright.
+
+## Props
+
+<ParamField path="follow" type="boolean" default="true">
+  When `true`, the group rotates every frame to face the camera. Set to `false` to disable the effect while keeping the component in the scene graph.
+</ParamField>
+
+<ParamField path="lockX" type="boolean" default="false">
+  Prevents the billboard from rotating around the X axis. The X rotation is locked to its value before the billboard update.
+</ParamField>
+
+<ParamField path="lockY" type="boolean" default="false">
+  Prevents the billboard from rotating around the Y axis.
+</ParamField>
+
+<ParamField path="lockZ" type="boolean" default="false">
+  Prevents the billboard from rotating around the Z axis.
+</ParamField>
+
+All other props are forwarded to the outer `<group>` element, including `position`, `scale`, and `rotation`.
+
+## Usage
+
+### Basic billboard label
+
+```jsx
+import { Billboard, Text } from '@react-three/drei'
+
+function Label() {
+  return (
+    <Billboard position={[0, 1.5, 0]}>
+      <Text fontSize={0.4} color="white">
+        Player name
+      </Text>
+    </Billboard>
+  )
+}
+```
+
+### Locking the vertical axis
+
+Lock the Y axis so the billboard can only tilt up and down, not spin horizontally.
+
+```jsx
+<Billboard lockY>
+  <mesh>
+    <planeGeometry args={[1, 0.5]} />
+    <meshBasicMaterial color="cyan" />
+  </mesh>
+</Billboard>
+```
+
+### Cylindrical billboard (Y-axis spin only)
+
+Lock X and Z so the billboard spins only around Y, like a cylinder facing the camera.
+
+```jsx
+<Billboard lockX lockZ>
+  <Text fontSize={0.5}>Cylindrical</Text>
+</Billboard>
+```
+
+### Static billboard (disabled)
+
+```jsx
+<Billboard follow={false} position={[2, 0, 0]}>
+  <Text>Static text</Text>
+</Billboard>
+```
+
+<Note>
+  `<Billboard>` uses two nested groups internally. The ref forwarded from the component points to the outer group. Position, scale, and other transform props are applied to the outer group, while the camera-facing rotation is applied to the inner group.
+</Note>

@@ -1,0 +1,102 @@
+---
+title: "Edges: Hard-edge lines extracted from mesh geometry"
+description: "Renders hard-edge lines from a parent mesh using EdgesGeometry. Built on Line with configurable threshold angle and line width."
+---
+
+`<Edges>` renders the hard edges of its parent mesh as lines by extracting an `EdgesGeometry` from the parent's geometry. It is built on top of `<Line>` from drei and inherits all of its props, including colour, line width, and dashing. The geometry is pulled from the parent mesh automatically, or you can supply an explicit geometry. Edge lines are only drawn where the angle between two adjacent faces exceeds the configurable threshold.
+
+<Note>
+  `<Edges>` must be placed as a child of a mesh with a geometry. It reads the parent's geometry layout and will not render correctly if the parent has no geometry or if it is not a standard `THREE.Mesh`.
+</Note>
+
+## Props
+
+<ParamField path="threshold" type="number" default="15">
+  The minimum angle in degrees between adjacent faces for an edge to be drawn. Increase this value to show fewer, more prominent edges; decrease it to approach a full wireframe.
+</ParamField>
+
+<ParamField path="lineWidth" type="number">
+  Width of the edge lines in pixels. Forwarded to the underlying `LineMaterial`.
+</ParamField>
+
+<ParamField path="geometry" type="THREE.BufferGeometry">
+  An explicit source geometry. When provided, `<Edges>` uses this geometry instead of pulling it from the parent mesh.
+</ParamField>
+
+<ParamField path="color" type="THREE.ColorRepresentation">
+  Colour of the edge lines.
+</ParamField>
+
+All additional props are forwarded to the underlying `<Line>` component, which accepts `LineMaterialParameters` and other `Line2` props.
+
+## Usage
+
+### Basic edges on a box
+
+```jsx
+import { Edges } from '@react-three/drei'
+
+function WireframeBox() {
+  return (
+    <mesh>
+      <boxGeometry />
+      <meshStandardMaterial color="white" />
+      <Edges color="black" lineWidth={1.5} />
+    </mesh>
+  )
+}
+```
+
+### Adjusting the threshold
+
+Lower the threshold to reveal more internal edges; raise it to show only pronounced silhouette edges.
+
+```jsx
+<mesh>
+  <icosahedronGeometry args={[1, 1]} />
+  <meshStandardMaterial color="steelblue" />
+  <Edges
+    threshold={5}   // show edges between faces with angle > 5°
+    color="white"
+    lineWidth={2}
+  />
+</mesh>
+```
+
+### Scaled edges slightly outside the mesh
+
+Scaling the edges slightly above `1` prevents z-fighting between the lines and the mesh surface.
+
+```jsx
+<mesh>
+  <boxGeometry />
+  <meshBasicMaterial color="dimgray" />
+  <Edges scale={1.01} color="white" lineWidth={1} />
+</mesh>
+```
+
+### Custom geometry
+
+Use the `geometry` prop to drive edges from a geometry not connected to a parent mesh.
+
+```jsx
+const geo = new THREE.TorusGeometry(1, 0.4, 8, 16)
+
+<Edges geometry={geo} color="hotpink" lineWidth={2} />
+```
+
+### Custom material as child
+
+Because `<Edges>` is built on `<Line>`, you can pass a custom `<lineMaterial>` child.
+
+```jsx
+<mesh>
+  <sphereGeometry args={[1, 8, 8]} />
+  <meshStandardMaterial color="white" />
+  <Edges threshold={20} />
+</mesh>
+```
+
+<Tip>
+  `<Edges>` is raycasting-disabled by default (`raycast={() => null}`), so it will not intercept pointer events. The parent mesh remains fully interactive.
+</Tip>

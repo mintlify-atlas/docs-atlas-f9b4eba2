@@ -1,0 +1,203 @@
+---
+title: 'Environment: HDRI and Cubemap IBL Setup for R3F'
+description: 'Sets up a global cubemap affecting scene.environment and scene.background. Supports HDRI presets, EXR, gainmap, custom scenes, and ground projection.'
+---
+
+`Environment` sets up a global cubemap that drives image-based lighting in your scene. It writes to `scene.environment` and optionally `scene.background`, and supports a wide range of formats including HDR, EXR, gainmap JPG/WebP, and cube texture arrays. A curated set of HDRI Haven presets is available for rapid prototyping.
+
+<Note>
+  The `preset` prop relies on external CDNs and is not intended for production use. Use self-hosted assets via the `files` prop instead.
+</Note>
+
+## Props
+
+<ParamField path="background" type="boolean | 'only'" default="false">
+  Controls whether the environment map is also applied as the scene background. Use `"only"` to set the background without affecting lighting.
+</ParamField>
+
+<ParamField path="backgroundBlurriness" type="number" default="0">
+  Blur factor for the background texture, between 0 and 1. Requires Three.js r146 or later.
+</ParamField>
+
+<ParamField path="backgroundIntensity" type="number" default="1">
+  Intensity multiplier for the background texture. Requires Three.js r163 or later.
+</ParamField>
+
+<ParamField path="backgroundRotation" type="Euler" default="[0, 0, 0]">
+  Rotation applied to the background texture. Requires Three.js r163 or later.
+</ParamField>
+
+<ParamField path="environmentIntensity" type="number" default="1">
+  Intensity multiplier for the environment lighting. Requires Three.js r163 or later.
+</ParamField>
+
+<ParamField path="environmentRotation" type="Euler" default="[0, 0, 0]">
+  Rotation applied to the environment map. Requires Three.js r163 or later.
+</ParamField>
+
+<ParamField path="files" type="string | string[]">
+  Path or array of paths to environment texture files. Supports `.hdr`, `.exr`, gainmap `.jpg`, gainmap `.webp`, and cube texture arrays of six images.
+</ParamField>
+
+<ParamField path="path" type="string">
+  Base path prepended to `files`. Useful when textures are hosted in a subdirectory.
+</ParamField>
+
+<ParamField path="preset" type="string">
+  One of the built-in HDRI Haven presets: `apartment`, `city`, `dawn`, `forest`, `lobby`, `night`, `park`, `studio`, `sunset`, `warehouse`.
+</ParamField>
+
+<ParamField path="map" type="THREE.Texture">
+  Pass an existing `THREE.Texture` or `THREE.CubeTexture` directly, bypassing the loader.
+</ParamField>
+
+<ParamField path="scene" type="THREE.Scene | React.RefObject<THREE.Scene>">
+  Target scene to apply the environment map to. Defaults to the R3F root scene.
+</ParamField>
+
+<ParamField path="ground" type="boolean | { radius?: number; height?: number; scale?: number }">
+  Enables ground projection. Optionally configure `height` (camera height used to create the map, default `15`), `radius` (world radius, default `60`), and `scale` (backside sphere scale, default `1000`).
+</ParamField>
+
+<ParamField path="frames" type="number" default="1">
+  When using children to render a custom environment, controls how many frames the cube camera renders. Set to `Infinity` for a live environment.
+</ParamField>
+
+<ParamField path="near" type="number" default="1">
+  Near plane of the internal cube camera used when rendering custom environments via children.
+</ParamField>
+
+<ParamField path="far" type="number" default="1000">
+  Far plane of the internal cube camera used when rendering custom environments via children.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="256">
+  Render resolution of the internal cube camera used when rendering custom environments via children.
+</ParamField>
+
+<ParamField path="blur" type="number" deprecated>
+  Deprecated. Use `backgroundBlurriness` instead.
+</ParamField>
+
+## Usage
+
+### HDRI preset
+
+The quickest way to add image-based lighting is with a built-in preset.
+
+```jsx
+import { Environment } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <Environment preset="city" />
+      <mesh>
+        <sphereGeometry />
+        <meshStandardMaterial metalness={1} roughness={0} />
+      </mesh>
+    </>
+  )
+}
+```
+
+### File-based environments
+
+Use the `files` prop to load your own assets. Gainmap format (`.webp`) has the smallest file footprint.
+
+```jsx
+<Environment files="environment.hdr" />
+<Environment files="environment.exr" />
+<Environment files="environment.jpg" />
+{/* Gainmap WebP triplet */}
+<Environment files={['env.webp', 'env-gainmap.webp', 'env.json']} />
+{/* Cube texture */}
+<Environment files={['px.png', 'nx.png', 'py.png', 'ny.png', 'pz.png', 'nz.png']} />
+```
+
+### Self-hosted assets with @pmndrs/assets
+
+Use dynamic imports to keep the environment asset out of your main bundle.
+
+```jsx
+import { suspend } from 'suspend-react'
+import { Environment } from '@react-three/drei'
+
+const city = import('@pmndrs/assets/hdri/city.exr').then((m) => m.default)
+
+function Scene() {
+  return <Environment files={suspend(city)} />
+}
+```
+
+### Background and lighting separately
+
+Set the environment map as background only, or as lighting only.
+
+```jsx
+{/* Lighting only (default) */}
+<Environment preset="studio" background={false} />
+
+{/* Background only, no lighting effect */}
+<Environment preset="sunset" background="only" />
+
+{/* Both lighting and background */}
+<Environment preset="park" background />
+```
+
+### Custom rendered environment
+
+Render your own geometry into an off-screen cube camera to use as the environment.
+
+```jsx
+import * as THREE from 'three'
+
+function Scene() {
+  return (
+    <Environment background near={1} far={1000} resolution={256}>
+      <mesh scale={100}>
+        <sphereGeometry args={[1, 64, 64]} />
+        <meshBasicMaterial map={myTexture} side={THREE.BackSide} />
+      </mesh>
+    </Environment>
+  )
+}
+```
+
+### Live animated environment
+
+Set `frames={Infinity}` with a low resolution for a live environment that updates every frame.
+
+```jsx
+<Environment frames={Infinity} resolution={128}>
+  <Float>
+    <mesh>
+      <boxGeometry />
+      <meshStandardMaterial emissive="orange" emissiveIntensity={10} />
+    </mesh>
+  </Float>
+</Environment>
+```
+
+### Ground projection
+
+Project the environment onto the ground plane so objects appear to sit inside the scene.
+
+```jsx
+<Environment
+  preset="forest"
+  ground={{
+    height: 15,
+    radius: 60,
+    scale: 1000,
+  }}
+/>
+```
+
+### Existing cube texture
+
+Pass a texture produced by `CubeCamera` or any other source directly.
+
+```jsx
+<CubeCamera>{(texture) => <Environment map={texture} />}</CubeCamera>
+```

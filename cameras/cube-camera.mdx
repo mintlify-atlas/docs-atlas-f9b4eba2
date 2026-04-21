@@ -1,0 +1,159 @@
+---
+title: "CubeCamera: Reflections and env maps in drei"
+description: "Renders the scene into a WebGLCubeRenderTarget from six directions, exposing the cubemap texture for real-time reflections and IBL."
+---
+
+`CubeCamera` renders the scene from all six cardinal directions simultaneously, producing a cube-map texture stored in a `WebGLCubeRenderTarget`. The texture is passed into your component tree via a render-prop, where you can apply it as an `envMap` on any standard material to achieve real-time reflections. During each cube render pass, the direct children of `CubeCamera` are hidden so that the reflective object does not appear inside its own reflection.
+
+For situations where you only need the camera logic without a component, drei also exports the `useCubeCamera` hook, which gives you the raw `fbo`, `camera`, and `update` function directly.
+
+## Props
+
+<ParamField path="children" type="(tex: THREE.Texture) => ReactNode" required>
+  A render function that receives the cube-map texture produced each frame. Return the mesh or material that should display the reflection. The returned subtree is hidden during the cube render pass to prevent self-inclusion.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  Number of frames to render the cube map. Use `Infinity` for moving objects that require a live reflection. For fully static scenes, set this to `2` (so each camera face has a chance to see surrounding geometry) or `1` for a single-frame bake.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="256">
+  Size in pixels of each face of the cube render target. Higher values produce sharper reflections at the cost of GPU memory and render time.
+</ParamField>
+
+<ParamField path="near" type="number" default="0.1">
+  Near clipping plane of the internal `THREE.CubeCamera`.
+</ParamField>
+
+<ParamField path="far" type="number" default="1000">
+  Far clipping plane of the internal `THREE.CubeCamera`.
+</ParamField>
+
+<ParamField path="envMap" type="THREE.Texture">
+  A texture temporarily applied as the scene background for each cube render pass. Useful for blending a skybox into the captured environment without permanently mutating `scene.background`.
+</ParamField>
+
+<ParamField path="fog" type="THREE.Fog | THREE.FogExp2">
+  A fog instance temporarily set on the scene during the cube render pass. Lets you include fog in reflections independently of the main scene fog.
+</ParamField>
+
+<Note>
+  `CubeCamera` extends `ThreeElements['group']`, so any prop you would pass to a `<group>` — including `position`, `rotation`, `scale`, and `ref` — is forwarded to the underlying group that wraps the cube camera.
+</Note>
+
+## Usage
+
+### Basic reflection
+
+Wrap your reflective mesh inside `CubeCamera` and apply the provided texture as `envMap`. The sphere below will reflect everything around it each frame.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { CubeCamera, Environment } from '@react-three/drei'
+
+export default function ReflectiveSphere() {
+  return (
+    <Canvas>
+      <Environment preset="sunset" />
+      <CubeCamera>
+        {(texture) => (
+          <mesh>
+            <sphereGeometry args={[1, 64, 64]} />
+            <meshStandardMaterial
+              metalness={1}
+              roughness={0}
+              envMap={texture}
+            />
+          </mesh>
+        )}
+      </CubeCamera>
+    </Canvas>
+  )
+}
+```
+
+### Static reflection bake
+
+For scenes where the reflected geometry does not move, render the cube map a fixed number of times instead of every frame. Setting `frames={2}` ensures all six faces are captured and mutual visibility between objects is resolved in two passes.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { CubeCamera, Environment } from '@react-three/drei'
+
+export default function BakedReflection() {
+  return (
+    <Canvas>
+      <Environment preset="warehouse" />
+
+      {/* Bake two frames so the surrounding meshes appear in the reflection */}
+      <CubeCamera frames={2} resolution={512}>
+        {(texture) => (
+          <mesh position={[0, 0, 0]}>
+            <torusKnotGeometry args={[0.8, 0.25, 128, 32]} />
+            <meshStandardMaterial
+              metalness={0.9}
+              roughness={0.1}
+              envMap={texture}
+              color="silver"
+            />
+          </mesh>
+        )}
+      </CubeCamera>
+
+      {/* Static objects around the knot */}
+      <mesh position={[-3, 0, 0]}>
+        <boxGeometry />
+        <meshStandardMaterial color="tomato" />
+      </mesh>
+      <mesh position={[3, 0, 0]}>
+        <boxGeometry />
+        <meshStandardMaterial color="steelblue" />
+      </mesh>
+    </Canvas>
+  )
+}
+```
+
+<Tip>
+  Choose `frames` based on scene motion: use `Infinity` for animated or moving objects, a small fixed count (like `2`) for completely static scenes, and `resolution={128}` or lower when frame rate is a concern. High `resolution` values are the largest contributor to cube-camera render cost.
+</Tip>
+
+### useCubeCamera hook
+
+When you need imperative control — for example, updating the cube map on demand rather than every frame — use the `useCubeCamera` hook directly.
+
+```jsx
+import { useFrame } from '@react-three/fiber'
+import { useCubeCamera } from '@react-three/drei'
+import { useRef } from 'react'
+import * as THREE from 'three'
+
+function ReflectiveMirror() {
+  const { fbo, camera, update } = useCubeCamera({ resolution: 256, near: 0.1, far: 100 })
+  const meshRef = useRef()
+
+  useFrame(() => {
+    if (meshRef.current) {
+      // Hide the mesh while the cube camera renders
+      meshRef.current.visible = false
+      update()
+      meshRef.current.visible = true
+
+      // Apply the live texture to the material
+      meshRef.current.material.envMap = fbo.texture
+      meshRef.current.material.needsUpdate = true
+    }
+  })
+
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[1, 32, 32]} />
+      <meshStandardMaterial metalness={1} roughness={0} />
+    </mesh>
+  )
+}
+```
+
+<Warning>
+  When using `useCubeCamera`, you are responsible for hiding the reflective mesh before calling `update()` and restoring it afterwards. Failing to do so will cause the mesh to appear inside its own cube map, producing an incorrect reflection.
+</Warning>

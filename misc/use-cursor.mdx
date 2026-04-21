@@ -1,0 +1,87 @@
+---
+title: "Change the cursor on hover with useCursor"
+description: "useCursor updates the CSS cursor in response to a hover boolean, giving pointer feedback for 3D objects without manually touching the DOM."
+---
+
+`useCursor` maps a boolean hover state to a CSS cursor value. When the state becomes `true` it applies the `onPointerOver` cursor; when it becomes `false` it restores the `onPointerOut` cursor. This keeps cursor management in sync with React Three Fiber's pointer events without you having to touch the DOM manually.
+
+<Note>
+  `useCursor` is DOM-only and requires a browser environment.
+</Note>
+
+## Signature
+
+```tsx
+function useCursor(
+  hovered: boolean,
+  onPointerOver?: string,
+  onPointerOut?: string,
+  container?: HTMLElement
+): void
+```
+
+## Parameters
+
+<ParamField path="hovered" type="boolean" required>
+  Drives the cursor change. Set this to `true` on pointer enter and `false` on pointer leave.
+</ParamField>
+
+<ParamField path="onPointerOver" type="string" default="pointer">
+  The CSS cursor value applied while `hovered` is `true`.
+</ParamField>
+
+<ParamField path="onPointerOut" type="string" default="auto">
+  The CSS cursor value restored when `hovered` becomes `false`.
+</ParamField>
+
+<ParamField path="container" type="HTMLElement" default="document.body">
+  The element whose `cursor` style is updated. Useful when your canvas is embedded in a scoped container.
+</ParamField>
+
+## Usage
+
+```jsx
+import { useState } from 'react'
+import { useCursor } from '@react-three/drei'
+
+function InteractiveMesh() {
+  const [hovered, setHovered] = useState(false)
+  useCursor(hovered)
+
+  return (
+    <mesh
+      onPointerOver={() => setHovered(true)}
+      onPointerOut={() => setHovered(false)}
+    >
+      <boxGeometry />
+      <meshStandardMaterial color={hovered ? 'hotpink' : 'gray'} />
+    </mesh>
+  )
+}
+```
+
+### Custom cursor styles
+
+```jsx
+const [active, setActive] = useState(false)
+useCursor(active, 'grabbing', 'grab')
+
+<mesh
+  onPointerDown={() => setActive(true)}
+  onPointerUp={() => setActive(false)}
+>
+  <sphereGeometry />
+  <meshStandardMaterial />
+</mesh>
+```
+
+### Scoped container
+
+```jsx
+const canvasRef = useRef(document.getElementById('canvas-wrapper'))
+useCursor(hovered, 'crosshair', 'default', canvasRef.current)
+```
+
+<Tip>
+  Combine `useCursor` with `onPointerOver` / `onPointerOut` event props on any mesh. The hook cleans up automatically — it restores the previous cursor value when the component unmounts or when `hovered` changes back to `false`.
+</Tip>

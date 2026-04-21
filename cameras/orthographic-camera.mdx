@@ -1,0 +1,142 @@
+---
+title: "OrthographicCamera: Parallel projection for drei"
+description: "A canvas-responsive OrthographicCamera that auto-sizes its frustum. Supports makeDefault, FBO children, and manual frustum override."
+---
+
+`OrthographicCamera` wraps Three.js's `THREE.OrthographicCamera` and keeps its `left`, `right`, `top`, and `bottom` frustum planes synchronized with the canvas size automatically. It shares the same API as `PerspectiveCamera` — you can designate it as the default camera, attach children that follow its transform, or pass a render-function to capture the scene into a framebuffer texture. Orthographic projection removes perspective distortion, making it well-suited for 2D scenes, UI overlays, isometric views, and technical drawings.
+
+## Props
+
+<ParamField path="makeDefault" type="boolean">
+  Registers this camera as the fiber default. Fiber will render the scene using parallel projection from this camera. Restores the previous camera on unmount.
+</ParamField>
+
+<ParamField path="manual" type="boolean">
+  Disables automatic frustum updates driven by canvas size. Use this when you manage the `left`, `right`, `top`, and `bottom` planes yourself and call `camera.updateProjectionMatrix()` manually.
+</ParamField>
+
+<ParamField path="children" type="ReactNode | ((texture: THREE.Texture) => ReactNode)">
+  When a plain React node, children are positioned in scene-space at the camera's location and move with it. When a function, the camera renders the scene orthographically into an FBO and passes the resulting texture to the function — returned nodes are hidden during the FBO pass to avoid artifacts.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  Number of frames to render into the FBO when `children` is a function. Use `Infinity` for a live feed or a fixed count for a static bake.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="256">
+  Width and height in pixels of the internal FBO used when `children` is a render function.
+</ParamField>
+
+<ParamField path="envMap" type="THREE.Texture">
+  A texture temporarily used as the scene background during the FBO render pass. Only applies when `children` is a function.
+</ParamField>
+
+<Note>
+  The frustum planes `left`, `right`, `top`, and `bottom` default to half the canvas width and height respectively. You can override them directly as props — for example `left={-5} right={5} top={5} bottom={-5}` — but you should also set `manual` so that automatic canvas-driven updates do not overwrite your values.
+</Note>
+
+## Usage
+
+### Default camera
+
+Replace the fiber default camera with an orthographic one. This is common for 2D scenes, flat UI, or any scenario where you want uniform object sizes regardless of depth.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { OrthographicCamera } from '@react-three/drei'
+
+export default function FlatScene() {
+  return (
+    <Canvas>
+      <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={50} />
+      <mesh>
+        <planeGeometry args={[2, 2]} />
+        <meshBasicMaterial color="mediumpurple" />
+      </mesh>
+    </Canvas>
+  )
+}
+```
+
+### Isometric view
+
+Use a fixed camera angle with an orthographic projection to achieve a classic isometric look. The `zoom` prop scales world units to pixels.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { OrthographicCamera, OrbitControls } from '@react-three/drei'
+
+export default function IsometricScene() {
+  return (
+    <Canvas>
+      <OrthographicCamera
+        makeDefault
+        position={[10, 10, 10]}
+        zoom={40}
+      />
+      <OrbitControls enableRotate={false} />
+      <ambientLight intensity={0.8} />
+      <directionalLight position={[5, 10, 5]} />
+      <mesh position={[0, 0, 0]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="steelblue" />
+      </mesh>
+    </Canvas>
+  )
+}
+```
+
+### Children that follow the camera
+
+React nodes passed as children are placed at the camera's position in the scene. This lets you attach screen-space overlays or indicators that move with the camera.
+
+```jsx
+<OrthographicCamera makeDefault position={[0, 0, 10]}>
+  <mesh position={[0, 0, -0.1]}>
+    <planeGeometry args={[20, 20]} />
+    <meshBasicMaterial color="#f0f0f0" />
+  </mesh>
+</OrthographicCamera>
+```
+
+### Render to texture (FBO)
+
+Pass a function as `children` to capture the scene from an orthographic viewpoint into an FBO texture. This is useful for minimaps, surveillance feeds, or any render-target that requires a parallel projection.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { OrthographicCamera } from '@react-three/drei'
+import { useMemo } from 'react'
+import * as THREE from 'three'
+
+export default function Minimap() {
+  const plane = useMemo(() => new THREE.PlaneGeometry(3, 3), [])
+
+  return (
+    <Canvas>
+      {/* Top-down orthographic capture */}
+      <OrthographicCamera
+        position={[0, 10, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        zoom={30}
+      >
+        {(texture) => (
+          // Display the minimap in the corner of the main camera view
+          <mesh geometry={plane} position={[4, 3, -5]}>
+            <meshBasicMaterial map={texture} />
+          </mesh>
+        )}
+      </OrthographicCamera>
+
+      <mesh>
+        <torusGeometry args={[1, 0.3, 16, 100]} />
+        <meshStandardMaterial color="coral" />
+      </mesh>
+    </Canvas>
+  )
+}
+```
+
+<Tip>
+  The `zoom` prop maps world units to pixels. A `zoom` of `1` means one world unit equals one pixel; `zoom={50}` means 50 pixels per world unit. Adjusting `zoom` is the idiomatic way to control the visible area of an orthographic camera without changing frustum planes manually.
+</Tip>

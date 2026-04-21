@@ -1,0 +1,105 @@
+---
+title: Load Three.js typeface JSON fonts with the useFont hook
+description: A suspense-based hook for loading Three.js FontLoader JSON fonts by URL or inline FontData object, for use with Text3D and geometry text.
+---
+
+`useFont` loads a Three.js-compatible typeface font using `FontLoader` from `three-stdlib`, suspending via `suspend-react` until the font data is fetched and parsed. It accepts either a URL pointing to a typeface JSON file or a pre-loaded `FontData` object directly, making it easy to bundle fonts or share a single parsed font instance across multiple components without redundant fetching.
+
+<Note>
+  Components using `useFont` must be wrapped in a `<Suspense>` boundary. The hook suspends until the font JSON is fetched and parsed by `FontLoader`.
+</Note>
+
+## `useFont` hook
+
+```ts
+useFont(font: string | FontData): Font
+```
+
+<ParamField path="font" type="string | FontData" required>
+  Either a URL string pointing to a typeface JSON file (e.g. `helvetiker_regular.typeface.json`) or an inline `FontData` object. When a string is passed the font is fetched with `fetch`; when an object is passed it is parsed immediately without a network request.
+</ParamField>
+
+The `FontData` type has the following shape:
+
+```ts
+type FontData = {
+  boundingBox: { yMax: number; yMin: number }
+  familyName: string
+  glyphs: { [k: string]: Glyph }
+  resolution: number
+  underlineThickness: number
+}
+```
+
+### Basic usage with `Text3D`
+
+```jsx
+import { useFont, Text3D } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function Label() {
+  const font = useFont('/fonts/helvetiker_regular.typeface.json')
+  return (
+    <Text3D font={font} size={0.5} height={0.1}>
+      Hello World
+      <meshNormalMaterial />
+    </Text3D>
+  )
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={null}>
+      <Label />
+    </Suspense>
+  )
+}
+```
+
+### Sharing a font across components
+
+Because `useFont` uses `suspend-react` for caching, all components calling `useFont` with the same URL share a single parsed font instance. The font is fetched only once.
+
+```jsx
+function Title() {
+  const font = useFont('/fonts/helvetiker_regular.typeface.json')
+  return <Text3D font={font}>Title</Text3D>
+}
+
+function Subtitle() {
+  const font = useFont('/fonts/helvetiker_regular.typeface.json')
+  return <Text3D font={font} size={0.3}>Subtitle</Text3D>
+}
+```
+
+### Inline `FontData` object
+
+Pass a pre-imported or pre-fetched font data object to skip the network request entirely.
+
+```jsx
+import fontData from '/fonts/helvetiker_regular.typeface.json'
+import { useFont, Text3D } from '@react-three/drei'
+
+function Label() {
+  const font = useFont(fontData)
+  return <Text3D font={font}>Inline</Text3D>
+}
+```
+
+### Preloading
+
+Call `useFont.preload` outside of any component or in a top-level module to start loading the font before any component requests it.
+
+```jsx
+useFont.preload('/fonts/helvetiker_regular.typeface.json')
+```
+
+### Clearing the cache
+
+```jsx
+useFont.clear('/fonts/helvetiker_regular.typeface.json')
+```
+
+<Tip>
+  Many Three.js typeface JSON fonts are available via the `typeface-font` npm packages or through the Three.js examples in `three/examples/fonts/`. You can also convert any TTF/OTF font to typeface JSON using the [Facetype.js](https://gero3.github.io/facetype.js/) online converter.
+</Tip>

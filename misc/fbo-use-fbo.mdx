@@ -1,0 +1,137 @@
+---
+title: "Create WebGL render targets with Fbo and useFBO"
+description: "useFBO creates a managed WebGLRenderTarget sized to the canvas. The Fbo component exposes the same target via a render prop or a forwarded ref."
+---
+
+`useFBO` creates a `THREE.WebGLRenderTarget` that automatically matches the canvas size and device pixel ratio. The target is disposed when the component that called the hook unmounts, so you do not need to manage cleanup yourself. The `Fbo` component wraps the same hook and exposes the render target either as a render prop child or through a React ref.
+
+## useFBO
+
+The hook returns a `THREE.WebGLRenderTarget` ready for use in `useFrame` render passes.
+
+### Signature
+
+```tsx
+function useFBO(
+  width?: number | FBOSettings,
+  height?: number,
+  settings?: FBOSettings
+): THREE.WebGLRenderTarget
+```
+
+### Usage
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { useFBO } from '@react-three/drei'
+
+function OffscreenPass() {
+  const target = useFBO()
+  const meshRef = useRef()
+
+  useFrame(({ gl, scene, camera }) => {
+    gl.setRenderTarget(target)
+    gl.render(scene, camera)
+    gl.setRenderTarget(null)
+  })
+
+  return (
+    <mesh ref={meshRef}>
+      <planeGeometry args={[2, 2]} />
+      <meshBasicMaterial map={target.texture} />
+    </mesh>
+  )
+}
+```
+
+### Parameters
+
+<ParamField path="width" type="number | FBOSettings">
+  Width of the render target in pixels. If you pass an object here instead of a number, it is treated as the `settings` argument and the target renders at the full canvas resolution scaled by the device pixel ratio.
+</ParamField>
+
+<ParamField path="height" type="number">
+  Height of the render target in pixels. Defaults to the canvas height scaled by the device pixel ratio when not provided.
+</ParamField>
+
+<ParamField path="settings.samples" type="number" default="0">
+  Number of MSAA samples. Set to `4` or `8` for multi-sample anti-aliasing.
+</ParamField>
+
+<ParamField path="settings.depthBuffer" type="boolean">
+  Attaches a depth buffer to the render target.
+</ParamField>
+
+<ParamField path="settings.stencilBuffer" type="boolean">
+  Attaches a stencil buffer.
+</ParamField>
+
+<ParamField path="settings.depth" type="boolean" deprecated>
+  Deprecated. Use `depthBuffer` instead. When `true`, attaches a `THREE.DepthTexture` to `target.depthTexture`.
+</ParamField>
+
+Any other option from [`THREE.WebGLRenderTarget`](https://threejs.org/docs/#api/en/renderers/WebGLRenderTarget) can be passed inside `settings`.
+
+<Tip>
+  The render target defaults to `THREE.HalfFloatType` and linear filtering, which gives you HDR-capable textures without extra configuration. Override `type` or `minFilter`/`magFilter` in `settings` when you need different precision.
+</Tip>
+
+---
+
+## Fbo component
+
+The `Fbo` component is a declarative wrapper around `useFBO`. It accepts the same width, height, and settings as the hook and exposes the render target through a render prop or a forwarded `ref`.
+
+### Props
+
+<ParamField path="width" type="number | FBOSettings">
+  Width in pixels passed to `useFBO`. Accepts an `FBOSettings` object for full-canvas rendering.
+</ParamField>
+
+<ParamField path="height" type="number">
+  Height in pixels passed to `useFBO`.
+</ParamField>
+
+<ParamField path="children" type="(target: THREE.WebGLRenderTarget) => React.ReactNode">
+  Render prop that receives the `WebGLRenderTarget`. Use this to wire the target's texture into your scene declaratively.
+</ParamField>
+
+All additional props are forwarded as `FBOSettings` to `useFBO`.
+
+### Render prop
+
+```jsx
+import { Fbo } from '@react-three/drei'
+
+function TexturedPlane() {
+  return (
+    <Fbo width={512} height={512} stencilBuffer={false}>
+      {(target) => (
+        <mesh>
+          <planeGeometry args={[2, 2]} />
+          <meshBasicMaterial map={target.texture} />
+        </mesh>
+      )}
+    </Fbo>
+  )
+}
+```
+
+### Forwarded ref
+
+```jsx
+import { useRef } from 'react'
+import { Fbo } from '@react-three/drei'
+
+function RefExample() {
+  const targetRef = useRef()
+
+  return (
+    <>
+      <Fbo ref={targetRef} width={256} height={256} />
+      {/* Use targetRef.current.texture elsewhere in the scene */}
+    </>
+  )
+}
+```

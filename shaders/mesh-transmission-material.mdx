@@ -1,0 +1,165 @@
+---
+title: "MeshTransmissionMaterial: High-Quality Glass Transmission"
+description: "Enhanced glass and transmission material with chromatic aberration, noise blur, anisotropic scattering, and distortion. Extends MeshPhysicalMaterial."
+---
+
+`MeshTransmissionMaterial` is an improved replacement for `THREE.MeshPhysicalMaterial` when rendering transmissive objects like glass, ice, or crystal. Its key advantage over the built-in material is that transmissive meshes using this component can see other transparent and transmissive objects in the scene, because it renders the scene to its own off-screen buffer rather than relying on Three.js's single shared transmission sampler. It also adds chromatic aberration, noise-based roughness blur, anisotropic scattering, and temporal/spatial distortion that the built-in material lacks.
+
+Because each material instance causes an additional render pass of the scene, performance scales with the number of transmission materials in use. For performance-critical scenes, share a buffer between materials or enable `transmissionSampler`.
+
+## Props
+
+<ParamField path="transmission" type="number" default="1">
+  Degree to which the material transmits light through it. `1` is fully transmissive; `0` is opaque.
+</ParamField>
+
+<ParamField path="thickness" type="number" default="0">
+  Apparent thickness of the glass volume, which affects refraction offset and attenuation. Larger values produce stronger bending of the background.
+</ParamField>
+
+<ParamField path="roughness" type="number" default="0">
+  Surface roughness that blurs the transmitted background. Unlike the base `MeshPhysicalMaterial`, this defaults to `0` because a roughness of `1` on a transmission material rarely makes visual sense.
+</ParamField>
+
+<ParamField path="chromaticAberration" type="number" default="0.03">
+  Separates the red, green, and blue transmission samples slightly, creating a prismatic fringing effect at edges.
+</ParamField>
+
+<ParamField path="anisotropicBlur" type="number" default="0.1">
+  Degree of anisotropic smearing applied to the transmitted image. Also aliased as `anisotropy` for convenience.
+</ParamField>
+
+<ParamField path="distortion" type="number" default="0">
+  Intensity of noise-based normal distortion applied during transmission. Produces a frosted or warped glass effect.
+</ParamField>
+
+<ParamField path="distortionScale" type="number" default="0.5">
+  Spatial frequency of the distortion noise. Higher values make the distortion pattern finer.
+</ParamField>
+
+<ParamField path="temporalDistortion" type="number" default="0">
+  Speed at which the distortion noise pattern evolves over time. `0` produces static frosting; positive values animate it.
+</ParamField>
+
+<ParamField path="buffer" type="THREE.Texture" default="null">
+  A prerendered scene texture to use as the transmission buffer. Pass this to share a single render between multiple transmission materials instead of each rendering the scene independently.
+</ParamField>
+
+<ParamField path="transmissionSampler" type="boolean" default="false">
+  Use Three.js's built-in shared transmission sampler texture instead of rendering a private buffer. Faster when combined with other `MeshPhysicalMaterial` instances, but transmissive materials will not see each other.
+</ParamField>
+
+<ParamField path="backside" type="boolean" default="false">
+  Render the interior (back) face of the geometry into a separate buffer pass to improve refraction accuracy at the cost of one more render per frame.
+</ParamField>
+
+<ParamField path="backsideThickness" type="number" default="0">
+  Thickness value applied during the backside rendering pass. Allows independent control of front- and back-face refraction depths.
+</ParamField>
+
+<ParamField path="backsideEnvMapIntensity" type="number" default="1">
+  Environment map intensity used during the backside render pass.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="undefined">
+  Pixel size of the private off-screen buffer. Defaults to the full canvas resolution. Lower values (e.g. `256`) reduce cost significantly with minimal visual difference when `roughness > 0`.
+</ParamField>
+
+<ParamField path="backsideResolution" type="number" default="undefined">
+  Resolution of the separate backside buffer. Defaults to `resolution` when not set.
+</ParamField>
+
+<ParamField path="samples" type="number" default="10">
+  Number of stochastic refraction samples. More samples reduce noise in rough transmission but increase shader complexity. Changing this value recompiles the shader.
+</ParamField>
+
+<ParamField path="background" type="THREE.Texture | THREE.Color" default="null">
+  Override the scene background used when rendering the transmission buffer. Useful for setting a specific HDR or color behind the glass without affecting the main scene.
+</ParamField>
+
+## Usage
+
+### Basic glass mesh
+
+```jsx
+import { MeshTransmissionMaterial } from '@react-three/drei'
+
+function GlassSphere() {
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <MeshTransmissionMaterial
+        thickness={0.5}
+        roughness={0}
+        chromaticAberration={0.05}
+      />
+    </mesh>
+  )
+}
+```
+
+### Frosted glass panel
+
+```jsx
+<mesh>
+  <boxGeometry args={[3, 2, 0.1]} />
+  <MeshTransmissionMaterial
+    thickness={0.2}
+    roughness={0.4}
+    distortion={0.4}
+    distortionScale={0.3}
+    temporalDistortion={0.2}
+    resolution={256}
+    samples={6}
+  />
+</mesh>
+```
+
+### Sharing a buffer between multiple glass objects
+
+```jsx
+import { useFBO } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
+
+function SharedGlassScene() {
+  const buffer = useFBO()
+
+  useFrame((state) => {
+    state.gl.setRenderTarget(buffer)
+    state.gl.render(state.scene, state.camera)
+    state.gl.setRenderTarget(null)
+  })
+
+  return (
+    <>
+      <mesh geometry={torusGeometry}>
+        <MeshTransmissionMaterial buffer={buffer.texture} thickness={0.5} />
+      </mesh>
+      <mesh geometry={sphereGeometry}>
+        <MeshTransmissionMaterial buffer={buffer.texture} thickness={0.3} />
+      </mesh>
+    </>
+  )
+}
+```
+
+### Using the built-in Three.js sampler for performance
+
+```jsx
+<mesh>
+  <torusKnotGeometry />
+  <MeshTransmissionMaterial transmissionSampler thickness={0.4} />
+</mesh>
+```
+
+<Warning>
+  Each `MeshTransmissionMaterial` without a shared `buffer` causes one additional full-scene render per frame. For scenes with multiple glass objects, share a buffer or use `transmissionSampler` to avoid multiplicative render cost.
+</Warning>
+
+<Tip>
+  Set `resolution={64}` or `resolution={128}` when `roughness > 0`. The blur applied to rough transmission hides the low-resolution artifacts while keeping the render cost very low.
+</Tip>
+
+<Note>
+  Objects you want to exclude from appearing in the glass reflection should be added as children of the glass mesh. The host mesh is temporarily removed from the render stack while its buffer is captured, so its children will also be hidden during that pass.
+</Note>

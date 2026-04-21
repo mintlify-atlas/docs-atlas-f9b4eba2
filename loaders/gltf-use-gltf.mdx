@@ -1,0 +1,168 @@
+---
+title: Load GLTF and GLB models with useGLTF in React Three Fiber
+description: A suspense-based hook and component for loading GLTF and GLB models in React Three Fiber, with built-in Draco and Meshopt decompression support.
+---
+
+`useGLTF` is a convenience hook wrapping R3F's `useLoader` with `GLTFLoader` from `three-stdlib`. It suspends the component tree while the model loads, integrates Draco decompression and Meshopt decoding by default, and supports preloading assets before they are needed in the scene.
+
+<Note>
+  Components using `useGLTF` must be wrapped in a `<Suspense>` boundary. The hook suspends rendering until the asset is fully loaded.
+</Note>
+
+## `useGLTF` hook
+
+```tsx
+useGLTF<T extends string | string[]>(
+  path: T,
+  useDraco?: boolean | string,
+  useMeshopt?: boolean,
+  extendLoader?: (loader: GLTFLoader) => void
+): T extends any[] ? (GLTF & ObjectMap)[] : GLTF & ObjectMap
+```
+
+<ParamField path="path" type="string | string[]" required>
+  URL or array of URLs pointing to `.gltf` or `.glb` files. When an array is passed, the hook returns an array of loaded models.
+</ParamField>
+
+<ParamField path="useDraco" type="boolean | string" default="true">
+  Enable Draco decompression. Pass `true` to use the default CDN-hosted decoder at `https://www.gstatic.com/draco/versioned/decoders/1.5.5/`, or pass a path string to use your own decoder binaries.
+</ParamField>
+
+<ParamField path="useMeshopt" type="boolean" default="true">
+  Enable Meshopt decoding for compressed mesh data.
+</ParamField>
+
+<ParamField path="extendLoader" type="(loader: GLTFLoader) => void">
+  Optional callback to configure the `GLTFLoader` instance before loading. Use this to attach additional loaders such as `KTX2Loader`.
+</ParamField>
+
+### Basic usage
+
+```jsx
+import { useGLTF } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function Model() {
+  const { scene } = useGLTF('/model.glb')
+  return <primitive object={scene} />
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={null}>
+      <Model />
+    </Suspense>
+  )
+}
+```
+
+### Accessing nodes and materials
+
+`useGLTF` returns a `GLTF & ObjectMap`, giving you typed access to named nodes and materials alongside the standard GLTF fields.
+
+```jsx
+function Character() {
+  const { nodes, materials } = useGLTF('/character.glb')
+  return (
+    <mesh geometry={nodes.Body.geometry} material={materials.Skin} />
+  )
+}
+```
+
+### Preloading
+
+Call `useGLTF.preload` outside of the component tree to start fetching the file before it is first needed, avoiding a waterfall delay.
+
+```jsx
+useGLTF.preload('/model.glb')
+
+function Scene() {
+  const gltf = useGLTF('/model.glb') // already cached
+  return <primitive object={gltf.scene} />
+}
+```
+
+### Custom Draco decoder path
+
+```jsx
+// Use local decoder binaries instead of the CDN
+const gltf = useGLTF('/model.glb', '/draco-gltf/')
+```
+
+To set a global custom decoder path for all subsequent `useGLTF` calls:
+
+```jsx
+useGLTF.setDecoderPath('/draco-gltf/')
+```
+
+<Tip>
+  If you rely on the default CDN Draco decoder, you can prefetch the WASM binaries to reduce initial load time. Add these tags to your HTML `<head>`:
+
+  ```html
+  <link rel="prefetch" crossorigin="anonymous"
+    href="https://www.gstatic.com/draco/versioned/decoders/1.5.5/draco_wasm_wrapper.js" />
+  <link rel="prefetch" crossorigin="anonymous"
+    href="https://www.gstatic.com/draco/versioned/decoders/1.5.5/draco_decoder.wasm" />
+  ```
+</Tip>
+
+### Extending the loader
+
+Use `extendLoader` to attach additional loaders to the `GLTFLoader` instance. This is useful when your model references KTX2 compressed textures.
+
+```tsx
+import { KTX2Loader } from 'three-stdlib'
+import { useThree } from '@react-three/fiber'
+import { useGLTF } from '@react-three/drei'
+
+const ktx2Loader = new KTX2Loader()
+ktx2Loader.setTranscoderPath('https://unpkg.com/three@0.168.0/examples/jsm/libs/basis/')
+
+function Model() {
+  const { gl } = useThree()
+  const gltf = useGLTF('facecap.glb', true, true, (loader) => {
+    loader.setKTX2Loader(ktx2Loader.detectSupport(gl))
+  })
+  return <primitive object={gltf.scene} />
+}
+```
+
+### Clearing the cache
+
+```jsx
+useGLTF.clear('/model.glb')
+```
+
+## `Gltf` component
+
+The `Gltf` component wraps `useGLTF` and renders the loaded scene using the `Clone` helper. It accepts all `Clone` props in addition to its own:
+
+<ParamField path="src" type="string" required>
+  URL of the `.gltf` or `.glb` file to load. Unlike the hook, this does not accept an array.
+</ParamField>
+
+<ParamField path="useDraco" type="boolean | string" default="true">
+  Enable Draco decompression. Mirrors the `useDraco` parameter of `useGLTF`.
+</ParamField>
+
+<ParamField path="useMeshOpt" type="boolean" default="true">
+  Enable Meshopt decoding. Mirrors the `useMeshopt` parameter of `useGLTF`.
+</ParamField>
+
+<ParamField path="extendLoader" type="(loader: GLTFLoader) => void">
+  Optional callback to configure the loader before the asset is fetched.
+</ParamField>
+
+```tsx
+import { Gltf } from '@react-three/drei'
+import { Suspense } from 'react'
+
+export default function Scene() {
+  return (
+    <Suspense fallback={null}>
+      <Gltf src="/model.glb" />
+      <Gltf src="/model.glb" useDraco="/draco-gltf/" />
+    </Suspense>
+  )
+}
+```

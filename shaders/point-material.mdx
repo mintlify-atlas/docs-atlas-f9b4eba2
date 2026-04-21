@@ -1,0 +1,99 @@
+---
+title: "PointMaterial: Anti-Aliased Round Points Shader"
+description: "Renders point geometry as smooth circular dots using derivative-based anti-aliasing. Extends THREE.PointsMaterial and accepts all its props."
+---
+
+`PointMaterial` extends `THREE.PointsMaterial` with a modified fragment shader that masks each point sprite into a smooth anti-aliased circle. Without modification, `THREE.PointsMaterial` renders square point sprites at most pixel sizes. `PointMaterial` uses `gl_PointCoord` and the `fwidth` GLSL function to compute a smooth step at the unit circle boundary, producing correctly round dots at any size without visible aliasing on both WebGL 1 and WebGL 2 contexts.
+
+All props available on `THREE.PointsMaterial` — `size`, `sizeAttenuation`, `color`, `vertexColors`, `map`, `alphaMap`, `transparent`, `depthWrite` — are accepted directly.
+
+## Usage
+
+### Basic anti-aliased point cloud
+
+```jsx
+import { PointMaterial } from '@react-three/drei'
+
+function StarField({ positions }) {
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute
+          attach="attributes-position"
+          args={[positions, 3]}
+        />
+      </bufferGeometry>
+      <PointMaterial
+        transparent
+        size={0.02}
+        sizeAttenuation
+        depthWrite={false}
+        color="white"
+      />
+    </points>
+  )
+}
+```
+
+### Screen-space fixed-size dots
+
+```jsx
+<points>
+  <bufferGeometry>
+    <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+  </bufferGeometry>
+  <PointMaterial
+    transparent
+    vertexColors
+    size={4}
+    sizeAttenuation={false}
+    depthWrite={false}
+  />
+</points>
+```
+
+### Particles with vertex colors
+
+```jsx
+import { useMemo } from 'react'
+import * as THREE from 'three'
+
+function ColoredParticles({ count = 5000 }) {
+  const [positions, colors] = useMemo(() => {
+    const pos = new Float32Array(count * 3)
+    const col = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      pos.set(
+        [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10],
+        i * 3
+      )
+      col.set([Math.random(), Math.random(), Math.random()], i * 3)
+    }
+    return [pos, col]
+  }, [count])
+
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
+      </bufferGeometry>
+      <PointMaterial
+        transparent
+        vertexColors
+        size={0.05}
+        sizeAttenuation
+        depthWrite={false}
+      />
+    </points>
+  )
+}
+```
+
+<Note>
+  `depthWrite={false}` is recommended for particle systems where multiple translucent points overlap. Without it, points drawn later can occlude points behind them, causing visible sorting artifacts.
+</Note>
+
+<Tip>
+  Use `sizeAttenuation={false}` when you want all points to appear the same pixel size regardless of depth, which is useful for HUD-style overlays or screen-space constellations. Use `sizeAttenuation={true}` (the default) for true 3D particles that scale with perspective.
+</Tip>

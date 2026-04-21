@@ -1,0 +1,232 @@
+---
+title: "Lightformer, Shadow, Resize, CameraShake, and BBAnchor"
+description: "Utility staging components: emissive light formers, radial ground shadows, bounding-box resize, camera shake, and bounding-box anchoring."
+---
+
+This page covers several staging utilities that complement the main lighting and layout components in drei.
+
+## Lightformer
+
+`Lightformer` is an emissive mesh that simulates a shaped area light source. Place it inside an `<Environment>` component or directly in the scene to create soft, realistic lighting contributions.
+
+```jsx
+import { Environment, Lightformer } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <Environment>
+      <Lightformer
+        form="rect"
+        color="white"
+        intensity={2}
+        scale={[4, 2]}
+        position={[0, 5, -3]}
+        target={[0, 0, 0]}
+      />
+    </Environment>
+  )
+}
+```
+
+### Props
+
+<ParamField path="form" type='"circle" | "ring" | "rect" | "plane" | "box"'>
+  Shape of the light former mesh. Default: `'rect'`.
+</ParamField>
+
+<ParamField path="color" type="Color">
+  Emissive color. Default: `'white'`.
+</ParamField>
+
+<ParamField path="intensity" type="number">
+  Emissive intensity. Default: `1`.
+</ParamField>
+
+<ParamField path="scale" type="number | [number, number] | [number, number, number]">
+  Scale of the mesh.
+</ParamField>
+
+<ParamField path="target" type="boolean | [number, number, number] | Vector3">
+  Point the light former aims at. Default: `[0, 0, 0]`.
+</ParamField>
+
+<ParamField path="map" type="Texture">
+  Optional texture map for the emissive surface.
+</ParamField>
+
+<ParamField path="toneMapped" type="boolean">
+  Apply tone mapping. Default: `false`.
+</ParamField>
+
+---
+
+## Shadow
+
+`Shadow` renders a simple radial gradient blob shadow projected onto the ground plane. It's a lightweight alternative to `ContactShadows` for non-PBR scenes.
+
+```jsx
+import { Shadow } from '@react-three/drei'
+
+<mesh position={[0, 1, 0]}>
+  <sphereGeometry args={[0.5]} />
+  <meshStandardMaterial />
+  <Shadow scale={1.5} opacity={0.5} color="black" />
+</mesh>
+```
+
+### Props
+
+<ParamField path="color" type="Color | string | number">
+  Shadow color. Default: `'black'`.
+</ParamField>
+
+<ParamField path="opacity" type="number">
+  Shadow transparency. Default: `0.5`.
+</ParamField>
+
+<ParamField path="colorStop" type="number">
+  Hard stop position for the radial gradient center. Default: `0`.
+</ParamField>
+
+<ParamField path="fog" type="boolean">
+  Apply scene fog to the shadow. Default: `false`.
+</ParamField>
+
+<ParamField path="depthWrite" type="boolean">
+  Whether the shadow writes to the depth buffer. Default: `false`.
+</ParamField>
+
+---
+
+## Resize
+
+`Resize` scales its children to fit within a unit cube (or specific axis dimensions) based on their bounding box. Useful for normalizing models of unknown size.
+
+```jsx
+import { Resize } from '@react-three/drei'
+import { useGLTF } from '@react-three/drei'
+
+function NormalizedModel() {
+  const { scene } = useGLTF('/model.glb')
+  return (
+    <Resize width height>
+      <primitive object={scene} />
+    </Resize>
+  )
+}
+```
+
+### Props
+
+<ParamField path="width" type="boolean">
+  Scale to fit within 1 unit on the X axis.
+</ParamField>
+
+<ParamField path="height" type="boolean">
+  Scale to fit within 1 unit on the Y axis.
+</ParamField>
+
+<ParamField path="depth" type="boolean">
+  Scale to fit within 1 unit on the Z axis.
+</ParamField>
+
+<ParamField path="box3" type="Box3">
+  Provide a precomputed `Box3` instead of computing from children.
+</ParamField>
+
+<ParamField path="precise" type="boolean">
+  Use precise `Box3.setFromObject` traversal. Default: `true`.
+</ParamField>
+
+---
+
+## CameraShake
+
+`CameraShake` adds procedural Simplex-noise camera shake. It exposes a `ShakeController` ref for dynamically adjusting intensity at runtime.
+
+```jsx
+import { CameraShake, OrbitControls } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      <OrbitControls makeDefault />
+      <CameraShake
+        intensity={0.4}
+        maxYaw={0.05}
+        maxPitch={0.05}
+        maxRoll={0.05}
+        yawFrequency={0.8}
+        pitchFrequency={0.7}
+        rollFrequency={0.9}
+      />
+    </>
+  )
+}
+```
+
+### Props
+
+<ParamField path="intensity" type="number">
+  Overall shake amplitude. Default: `1`.
+</ParamField>
+
+<ParamField path="decay" type="boolean">
+  Gradually reduce intensity to zero over time.
+</ParamField>
+
+<ParamField path="decayRate" type="number">
+  Rate of intensity decay per frame. Default: `0.65`.
+</ParamField>
+
+<ParamField path="maxYaw" type="number">
+  Max yaw (horizontal) deviation in radians. Default: `0.1`.
+</ParamField>
+
+<ParamField path="maxPitch" type="number">
+  Max pitch (vertical) deviation in radians. Default: `0.1`.
+</ParamField>
+
+<ParamField path="maxRoll" type="number">
+  Max roll deviation in radians. Default: `0.1`.
+</ParamField>
+
+<ParamField path="yawFrequency" type="number">
+  Noise frequency for yaw. Default: `0.1`.
+</ParamField>
+
+<ParamField path="pitchFrequency" type="number">
+  Noise frequency for pitch. Default: `0.1`.
+</ParamField>
+
+<ParamField path="rollFrequency" type="number">
+  Noise frequency for roll. Default: `0.1`.
+</ParamField>
+
+The forwarded ref exposes `{ getIntensity(): number, setIntensity(val: number): void }`.
+
+---
+
+## BBAnchor
+
+`BBAnchor` offsets a child group to a specific corner, edge, or face of its parent's bounding box. The anchor value is a normalized vector where each axis is `-1`, `0`, or `+1`.
+
+```jsx
+import { BBAnchor } from '@react-three/drei'
+import { Html } from '@react-three/drei'
+
+<mesh>
+  <boxGeometry args={[2, 2, 2]} />
+  <meshStandardMaterial />
+  {/* Attach an HTML label to the top-right-front corner */}
+  <BBAnchor anchor={[1, 1, 1]}>
+    <Html>Top corner</Html>
+  </BBAnchor>
+</mesh>
+```
+
+### Props
+
+<ParamField path="anchor" type="Vector3 | [number, number, number]" required>
+  Normalized anchor position. Each axis: `-1` (min), `0` (center), `+1` (max).
+</ParamField>

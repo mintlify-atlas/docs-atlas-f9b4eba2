@@ -1,0 +1,132 @@
+---
+title: "useEnvironment, MatcapTexture, NormalTexture, ShadowAlpha"
+description: "Hooks and helpers for environment textures, matcap shading, normal maps, and alpha-based shadow transparency in React Three Fiber scenes."
+---
+
+This page covers additional staging utilities: the `useEnvironment` hook for loading HDRI environment maps imperatively, `MatcapTexture`/`useMatcapTexture` for matcap shading, `NormalTexture`/`useNormalTexture` for quick normal maps, and `ShadowAlpha` for opacity-driven shadow cutout.
+
+## useEnvironment
+
+`useEnvironment` loads an environment map (HDRI, EXR, or cubemap) and returns a `THREE.Texture` or `THREE.CubeTexture` without applying it globally. Use it when you need to assign an environment map to a specific material rather than the whole scene.
+
+```jsx
+import { useEnvironment } from '@react-three/drei'
+import { Suspense } from 'react'
+
+function ReflectiveMesh() {
+  const env = useEnvironment({ preset: 'city' })
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshStandardMaterial envMap={env} metalness={1} roughness={0} />
+    </mesh>
+  )
+}
+```
+
+It accepts the same options as the `Environment` component's props (`preset`, `files`, `path`, `extensions`).
+
+---
+
+## useMatcapTexture / MatcapTexture
+
+Load a matcap texture from the [drei-assets matcap library](https://github.com/emmelleppi/matcaps) (1000+ matcaps). Pass an index or a hash string from the library.
+
+```jsx
+import { useMatcapTexture } from '@react-three/drei'
+import { MeshMatcapMaterial } from 'three'
+
+function MatcapSphere() {
+  const [matcap] = useMatcapTexture(0, 256)
+  return (
+    <mesh>
+      <sphereGeometry args={[1, 64, 64]} />
+      <meshMatcapMaterial matcap={matcap} />
+    </mesh>
+  )
+}
+```
+
+### useMatcapTexture signature
+
+```ts
+useMatcapTexture(
+  id: number | string,  // index (0-based) or hash string
+  format?: 64 | 128 | 256 | 512 | 1024,
+  onLoad?: (texture: Texture | Texture[]) => void
+): [Texture, string, number]  // [texture, imageName, totalCount]
+```
+
+The `MatcapTexture` component provides the same as a declarative render-prop.
+
+<Note>
+  `useMatcapTexture` suspends while fetching the matcap list and texture. Wrap in `<Suspense>`.
+</Note>
+
+---
+
+## useNormalTexture / NormalTexture
+
+Load a normal map texture from the drei-assets normal texture library. Returns a pre-configured `THREE.Texture` with repeat and offset applied.
+
+```jsx
+import { useNormalTexture } from '@react-three/drei'
+
+function TexturedMesh() {
+  const [normal] = useNormalTexture(10, {
+    repeat: [4, 4],
+    anisotropy: 8,
+  })
+
+  return (
+    <mesh>
+      <planeGeometry args={[4, 4]} />
+      <meshStandardMaterial normalMap={normal} />
+    </mesh>
+  )
+}
+```
+
+### useNormalTexture signature
+
+```ts
+useNormalTexture(
+  id?: number,
+  settings?: {
+    repeat?: number[]    // default: [1, 1]
+    anisotropy?: number  // default: 1
+    offset?: number[]    // default: [0, 0]
+  },
+  onLoad?: (texture: Texture | Texture[]) => void
+): [Texture, string, number]  // [texture, imageName, totalCount]
+```
+
+---
+
+## ShadowAlpha
+
+`ShadowAlpha` modifies a mesh's shadow to respect its material's `opacity` or an explicit `alphaMap`. It patches the shadow material's shader at runtime to discard fragments based on alpha, enabling transparent meshes to cast correct partial shadows.
+
+```jsx
+import { ShadowAlpha } from '@react-three/drei'
+
+<mesh castShadow>
+  <planeGeometry args={[2, 2]} />
+  <meshStandardMaterial
+    transparent
+    opacity={0.5}
+    alphaMap={circularAlphaMap}
+  />
+  <ShadowAlpha />
+</mesh>
+```
+
+### Props
+
+<ParamField path="opacity" type="number">
+  Override opacity for the shadow. If not set, reads from the parent material.
+</ParamField>
+
+<ParamField path="alphaMap" type="Texture | boolean">
+  Override or enable the alpha map for shadow cutout. Pass `true` to use the parent material's `alphaMap`.
+</ParamField>

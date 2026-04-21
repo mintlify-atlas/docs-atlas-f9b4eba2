@@ -1,0 +1,75 @@
+---
+title: "PositionalAudio: 3D spatialized audio in React Three Fiber"
+description: "Load and play audio with Three.js PositionalAudio. Sound attenuates based on distance from the listener, attached to the default camera."
+---
+
+`PositionalAudio` loads a sound file and plays it as a `THREE.PositionalAudio` source attached to a scene object. The audio listener is added to the default camera, so the sound volume and panning automatically attenuate based on the object's distance and direction from the viewer.
+
+```jsx
+import { Suspense } from 'react'
+import { PositionalAudio } from '@react-three/drei'
+
+function SoundEmitter() {
+  return (
+    <mesh position={[2, 0, 0]}>
+      <sphereGeometry args={[0.5]} />
+      <meshStandardMaterial color="hotpink" />
+      <Suspense fallback={null}>
+        <PositionalAudio url="/audio/sound.mp3" distance={3} loop />
+      </Suspense>
+    </mesh>
+  )
+}
+```
+
+<Note>
+  `PositionalAudio` suspends while the audio buffer loads. Wrap it in a `<Suspense>` boundary.
+</Note>
+
+## Props
+
+<ParamField path="url" type="string" required>
+  URL of the audio file to load via `THREE.AudioLoader`.
+</ParamField>
+
+<ParamField path="distance" type="number">
+  Reference distance for volume attenuation — the volume is full at this range. Default: `1`.
+</ParamField>
+
+<ParamField path="loop" type="boolean">
+  Whether the audio loops. Default: `true`.
+</ParamField>
+
+<ParamField path="autoplay" type="boolean">
+  Start playing as soon as the buffer is loaded. Default: `undefined` (not set).
+</ParamField>
+
+All other `ThreeElements['positionalAudio']` props (like `setRolloffFactor`, `setMaxDistance`) are forwarded to the underlying `THREE.PositionalAudio`.
+
+## Ref
+
+The component forwards a ref to the underlying `THREE.PositionalAudio` instance for imperative control:
+
+```jsx
+import { useRef, useEffect } from 'react'
+import { PositionalAudio } from '@react-three/drei'
+
+function Scene() {
+  const audioRef = useRef()
+
+  useEffect(() => {
+    // Play on user gesture
+    const handleClick = () => audioRef.current?.play()
+    window.addEventListener('click', handleClick)
+    return () => window.removeEventListener('click', handleClick)
+  }, [])
+
+  return (
+    <PositionalAudio ref={audioRef} url="/audio/ambient.mp3" loop={false} />
+  )
+}
+```
+
+<Warning>
+  Browsers block autoplay until the user interacts with the page. Use a click handler or the `autoplay` prop after a user gesture.
+</Warning>

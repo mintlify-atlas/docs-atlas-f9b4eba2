@@ -1,0 +1,120 @@
+---
+title: 'Mesh shapes: Box, Sphere, Plane, Torus, and beyond'
+description: 'Convenient mesh components wrapping every standard Three.js geometry. Pass geometry constructor args and any THREE.Mesh prop in one element.'
+---
+
+Drei exports a component for each standard Three.js buffer geometry — `Box`, `Sphere`, `Plane`, `Circle`, `Cone`, `Cylinder`, `Tube`, `Torus`, `TorusKnot`, `Ring`, `Tetrahedron`, `Polyhedron`, `Icosahedron`, `Octahedron`, `Dodecahedron`, `Extrude`, `Lathe`, `Capsule`, and `Shape`. Each one renders a `<mesh>` with the corresponding geometry attached, so you can set geometry constructor arguments through `args` and pass any `THREE.Mesh` prop directly on the element.
+
+## Props
+
+<ParamField path="args" type="array">
+  Constructor arguments forwarded to the underlying Three.js geometry (e.g. `[width, height, depth]` for `Box`). Matches the positional parameters of the corresponding `THREE.*Geometry` constructor. Optional — defaults to the geometry's own defaults when omitted.
+</ParamField>
+
+<ParamField path="children" type="ReactNode">
+  Child elements rendered inside the mesh. Use this to attach a material.
+</ParamField>
+
+All additional props are spread onto the underlying `THREE.Mesh` element, so position, rotation, scale, `material-*` shorthand, and event handlers work without extra wrappers.
+
+## Geometry args reference
+
+| Component | Three.js geometry | Key args |
+|-----------|-------------------|----------|
+| `Box` | `BoxGeometry` | `width, height, depth, widthSegments, heightSegments, depthSegments` |
+| `Plane` | `PlaneGeometry` | `width, height, widthSegments, heightSegments` |
+| `Circle` | `CircleGeometry` | `radius, segments, thetaStart, thetaLength` |
+| `Sphere` | `SphereGeometry` | `radius, widthSegments, heightSegments` |
+| `Cone` | `ConeGeometry` | `radius, height, radialSegments, heightSegments, openEnded` |
+| `Cylinder` | `CylinderGeometry` | `radiusTop, radiusBottom, height, radialSegments, heightSegments, openEnded` |
+| `Tube` | `TubeGeometry` | `path, tubularSegments, radius, radialSegments, closed` |
+| `Torus` | `TorusGeometry` | `radius, tube, radialSegments, tubularSegments, arc` |
+| `TorusKnot` | `TorusKnotGeometry` | `radius, tube, tubularSegments, radialSegments, p, q` |
+| `Ring` | `RingGeometry` | `innerRadius, outerRadius, thetaSegments, phiSegments, thetaStart, thetaLength` |
+| `Tetrahedron` | `TetrahedronGeometry` | `radius, detail` |
+| `Icosahedron` | `IcosahedronGeometry` | `radius, detail` |
+| `Octahedron` | `OctahedronGeometry` | `radius, detail` |
+| `Dodecahedron` | `DodecahedronGeometry` | `radius, detail` |
+| `Polyhedron` | `PolyhedronGeometry` | `vertices, indices, radius, detail` |
+| `Extrude` | `ExtrudeGeometry` | `shapes, options` |
+| `Lathe` | `LatheGeometry` | `points, segments, phiStart, phiLength` |
+| `Capsule` | `CapsuleGeometry` | `radius, length, capSegments, radialSegments` |
+| `Shape` | `ShapeGeometry` | `shapes, curveSegments` — UVs are auto-calculated |
+
+## Usage
+
+<CodeGroup>
+
+```jsx Basic shapes
+import { Box, Sphere, Plane } from '@react-three/drei'
+
+function Scene() {
+  return (
+    <>
+      {/* Box with explicit dimensions */}
+      <Box args={[2, 1, 0.5]} position={[-2, 0, 0]}>
+        <meshStandardMaterial color="hotpink" />
+      </Box>
+
+      {/* Sphere with radius and segment count */}
+      <Sphere args={[0.75, 32, 32]} position={[0, 0, 0]}>
+        <meshStandardMaterial color="skyblue" />
+      </Sphere>
+
+      {/* Plane using material-color shorthand */}
+      <Plane args={[4, 4]} rotation={[-Math.PI / 2, 0, 0]} material-color="gray" />
+    </>
+  )
+}
+```
+
+```jsx Torus and TorusKnot
+import { Torus, TorusKnot } from '@react-three/drei'
+
+function Knots() {
+  return (
+    <>
+      <Torus args={[1, 0.3, 16, 64]} position={[-2, 0, 0]}>
+        <meshNormalMaterial />
+      </Torus>
+
+      <TorusKnot args={[0.6, 0.2, 128, 16]} position={[2, 0, 0]}>
+        <meshNormalMaterial />
+      </TorusKnot>
+    </>
+  )
+}
+```
+
+```jsx Custom Shape with auto UVs
+import { Shape as DreiShape } from '@react-three/drei'
+import { Shape } from 'three'
+
+function Heart() {
+  const heartShape = new Shape()
+  heartShape.moveTo(0, 0.25)
+  heartShape.bezierCurveTo(0, 0.5, -0.5, 0.5, -0.5, 0.25)
+  heartShape.bezierCurveTo(-0.5, 0, 0, -0.25, 0, -0.5)
+  heartShape.bezierCurveTo(0, -0.25, 0.5, 0, 0.5, 0.25)
+  heartShape.bezierCurveTo(0.5, 0.5, 0, 0.5, 0, 0.25)
+
+  return (
+    <DreiShape args={[heartShape]}>
+      <meshStandardMaterial color="red" side={2} />
+    </DreiShape>
+  )
+}
+```
+
+</CodeGroup>
+
+<Note>
+  `Shape` automatically computes UV coordinates from the bounding box of the
+  extruded shape, so textures map correctly without manual UV setup.
+</Note>
+
+<Tip>
+  Use the `material-*` prop shorthand (e.g. `material-color="hotpink"`) to set
+  properties on the default `MeshBasicMaterial` without adding a child material
+  element.
+</Tip>

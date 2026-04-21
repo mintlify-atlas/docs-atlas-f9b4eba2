@@ -1,0 +1,129 @@
+---
+title: "RenderTexture: live scene-to-texture rendering in drei"
+description: "Render a live 3D scene into a WebGL texture with RenderTexture. Use it as any material map — supports events, environments, and custom cameras."
+---
+
+`RenderTexture` renders a live Three.js scene into a framebuffer object (FBO) and exposes the resulting texture as a `THREE.Texture` that you can attach to any material property. The scene inside runs in an isolated `createPortal` so it has its own camera, lighting, and event system. You can use the texture as a `map`, `envMap`, `roughnessMap`, or any other material slot. The component forwards a ref to the underlying `THREE.Texture`.
+
+## Props
+
+<ParamField path="children" type="React.ReactNode" required>
+  The 3D scene to render into the texture. Runs inside an isolated portal with its own scene context.
+</ParamField>
+
+<ParamField path="width" type="number">
+  Width of the render target in pixels. Defaults to the viewport width multiplied by the device pixel ratio.
+</ParamField>
+
+<ParamField path="height" type="number">
+  Height of the render target in pixels. Defaults to the viewport height multiplied by the device pixel ratio.
+</ParamField>
+
+<ParamField path="samples" type="number" default="8">
+  Number of MSAA samples for the framebuffer. Set to `0` to disable multisampling.
+</ParamField>
+
+<ParamField path="stencilBuffer" type="boolean" default="false">
+  Whether to allocate a stencil buffer for the render target.
+</ParamField>
+
+<ParamField path="depthBuffer" type="boolean" default="true">
+  Whether to allocate a depth buffer for the render target.
+</ParamField>
+
+<ParamField path="generateMipmaps" type="boolean" default="false">
+  Whether to generate mipmaps for the texture after each render. Useful when the texture is applied to geometry at varying distances.
+</ParamField>
+
+<ParamField path="renderPriority" type="number" default="0">
+  Priority passed to `useFrame` that controls when the offscreen render happens relative to other frame callbacks.
+</ParamField>
+
+<ParamField path="eventPriority" type="number" default="0">
+  Priority of the portal's event system. Controls which layer receives pointer events first when portals overlap.
+</ParamField>
+
+<ParamField path="frames" type="number" default="Infinity">
+  Number of frames to render. Set to `1` to render a single static frame (useful for baked-in textures). Defaults to `Infinity` for continuous animation.
+</ParamField>
+
+<ParamField path="compute" type="(event, state, previous) => false | undefined">
+  Custom event compute function for the portal. When omitted, the default UV-based raycasting compute is used, which maps pointer events through the surface's UV coordinates onto the inner scene.
+</ParamField>
+
+## Basic usage
+
+Apply a live-rendered scene as the color map of a plane:
+
+```jsx
+import { RenderTexture, PerspectiveCamera, Text } from '@react-three/drei'
+
+export default function Screen() {
+  return (
+    <mesh>
+      <planeGeometry args={[2, 2]} />
+      <meshStandardMaterial>
+        <RenderTexture attach="map">
+          <color attach="background" args={['#1a1a2e']} />
+          <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+          <mesh rotation={[0, 1, 0]}>
+            <torusKnotGeometry args={[0.6, 0.2, 128, 16]} />
+            <meshNormalMaterial />
+          </mesh>
+        </RenderTexture>
+      </meshStandardMaterial>
+    </mesh>
+  )
+}
+```
+
+## Static one-time render
+
+Set `frames={1}` to render exactly once and stop. This is efficient for textures that do not need to update every frame:
+
+```jsx
+<RenderTexture attach="map" frames={1}>
+  <PerspectiveCamera makeDefault position={[0, 0, 3]} />
+  <mesh>
+    <boxGeometry />
+    <meshStandardMaterial color="teal" />
+  </mesh>
+</RenderTexture>
+```
+
+## Custom resolution
+
+Override the texture dimensions to trade quality for performance:
+
+```jsx
+<RenderTexture attach="map" width={512} height={512} samples={4}>
+  <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+  <ambientLight intensity={0.5} />
+  <mesh>
+    <sphereGeometry args={[1, 32, 32]} />
+    <meshStandardMaterial color="coral" />
+  </mesh>
+</RenderTexture>
+```
+
+## Accessing the texture ref
+
+Forward a ref to get the `THREE.Texture` instance directly, for example to read pixels or pass it to a custom shader:
+
+```jsx
+import { useRef } from 'react'
+
+const textureRef = useRef()
+
+<RenderTexture ref={textureRef} attach="map">
+  {/* ... */}
+</RenderTexture>
+```
+
+<Note>
+  The default UV-based event compute means pointer events on the host mesh are automatically projected through UV space into the inner scene. You can override this with the `compute` prop if your geometry uses non-standard UVs.
+</Note>
+
+<Tip>
+  Use `RenderTexture` inside `MeshPortalMaterial` for portal effects where the texture surface should act as a window into another scene. For a simpler portal with built-in blending and edge fade, see [MeshPortalMaterial](/portals/mesh-portal-material).
+</Tip>

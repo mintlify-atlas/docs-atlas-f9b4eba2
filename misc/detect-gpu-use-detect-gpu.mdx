@@ -1,0 +1,138 @@
+---
+title: "Detect GPU tier at runtime with DetectGPU and useDetectGPU"
+description: "useDetectGPU detects the user's GPU tier via detect-gpu wrapped in Suspense, letting you conditionally render high or low quality scenes based on hardware."
+---
+
+`useDetectGPU` wraps the [`detect-gpu`](https://github.com/pmndrs/detect-gpu) library in a `suspend-react` boundary so the result is available synchronously to its children. It returns a `GPUTier` object describing the device's GPU tier, whether it is mobile, and the detected GPU model. The companion `DetectGPU` component provides a render-prop API over the same hook.
+
+<Note>
+  `useDetectGPU` can be used **outside** the React Three Fiber `Canvas`. You can call it at the app level to decide whether to render the 3D scene at all.
+</Note>
+
+## useDetectGPU
+
+### Signature
+
+```tsx
+function useDetectGPU(props?: GetGPUTier): GPUTier
+```
+
+### Parameters
+
+<ParamField path="props" type="GetGPUTier">
+  Options forwarded directly to `detect-gpu`'s `getGPUTier`. Common options include `mobileTiers`, `desktopTiers`, `override`, and `benchmarksURL`. See the [detect-gpu documentation](https://github.com/pmndrs/detect-gpu) for the full list.
+</ParamField>
+
+### Return value
+
+A `GPUTier` object with the following shape:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tier` | `number` | GPU performance tier: `0` (lowest) through `3` (highest). |
+| `isMobile` | `boolean` | `true` when running on a mobile GPU. |
+| `type` | `string` | `'BENCHMARK'`, `'FALLBACK'`, `'BLACKLISTED'`, or `'UNSUPPORTED'`. |
+| `gpu` | `string \| undefined` | Detected GPU model string, if available. |
+| `fps` | `number \| undefined` | Estimated FPS from benchmark data, if available. |
+
+### Usage
+
+Because `useDetectGPU` uses `suspend-react`, the component that calls it must be wrapped in `<Suspense>`.
+
+```jsx
+import { Suspense } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { useDetectGPU } from '@react-three/drei'
+
+function App() {
+  const gpuTier = useDetectGPU()
+
+  if (gpuTier.tier === 0 || gpuTier.isMobile) {
+    return <FallbackUI />
+  }
+
+  return (
+    <Canvas>
+      <HighQualityScene />
+    </Canvas>
+  )
+}
+
+export default function Root() {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <App />
+    </Suspense>
+  )
+}
+```
+
+---
+
+## DetectGPU component
+
+`DetectGPU` is a declarative wrapper that passes the `GPUTier` result to a render-prop child. All `getGPUTier` options can be passed directly as props.
+
+### Props
+
+<ParamField path="children" type="(result: GPUTier) => React.ReactNode">
+  Render prop that receives the `GPUTier` object once detection completes.
+</ParamField>
+
+All additional props are forwarded to `getGPUTier` as options.
+
+### Usage
+
+```jsx
+import { Suspense } from 'react'
+import { DetectGPU } from '@react-three/drei'
+
+export default function Root() {
+  return (
+    <Suspense fallback={null}>
+      <DetectGPU>
+        {({ tier, isMobile, gpu }) => (
+          <p>
+            GPU: {gpu ?? 'unknown'} — tier {tier}
+            {isMobile ? ' (mobile)' : ''}
+          </p>
+        )}
+      </DetectGPU>
+    </Suspense>
+  )
+}
+```
+
+### Adaptive quality
+
+```jsx
+import { Suspense } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { DetectGPU, Environment } from '@react-three/drei'
+
+function AdaptiveScene({ tier }) {
+  return (
+    <Canvas>
+      <Environment preset={tier >= 2 ? 'city' : 'sunset'} />
+      <mesh>
+        <sphereGeometry args={[1, tier >= 2 ? 64 : 16, tier >= 2 ? 64 : 16]} />
+        <meshStandardMaterial />
+      </mesh>
+    </Canvas>
+  )
+}
+
+export default function App() {
+  return (
+    <Suspense fallback={null}>
+      <DetectGPU>
+        {({ tier }) => <AdaptiveScene tier={tier} />}
+      </DetectGPU>
+    </Suspense>
+  )
+}
+```
+
+<Tip>
+  GPU tier detection is asynchronous. Always wrap the calling component in a `<Suspense>` boundary to avoid a runtime error while detection is in progress.
+</Tip>

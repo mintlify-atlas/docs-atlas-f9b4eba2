@@ -1,0 +1,82 @@
+---
+title: Display a DOM loading overlay with the Loader component
+description: A pre-built DOM loading overlay component for React Three Fiber that shows an animated progress bar and percentage while Suspense boundaries resolve.
+---
+
+`Loader` is a ready-made loading overlay that sits outside the `<Canvas>` and listens to `THREE.DefaultLoadingManager` via `useProgress`. It renders a centered progress bar and animated percentage text that fades out once all assets have loaded. Because it operates in the DOM rather than the WebGL scene, it is available only in web (browser) environments.
+
+<Note>
+  `Loader` is a DOM-only component. It will not work in non-browser environments such as React Native or server-side rendering targets.
+</Note>
+
+## Basic usage
+
+Place `<Loader />` outside (and after) the `<Canvas>` element. It automatically tracks any assets loaded through Three.js's `DefaultLoadingManager`, which includes everything loaded via `useGLTF`, `useTexture`, `useFBX`, and other drei loaders.
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { Suspense } from 'react'
+import { Loader } from '@react-three/drei'
+
+export default function App() {
+  return (
+    <>
+      <Canvas>
+        <Suspense fallback={null}>
+          <Scene />
+        </Suspense>
+      </Canvas>
+      <Loader />
+    </>
+  )
+}
+```
+
+<Tip>
+  If your application has multiple `<Suspense>` boundaries loading assets at different times, use a separate `<Loader />` instance for each one so that the overlay reflects each loading phase independently.
+</Tip>
+
+## Props
+
+<ParamField path="containerStyles" type="CSSProperties">
+  Inline styles applied to the outermost container `div`. The default is a full-viewport flex container with a dark background (`#171717`) and `z-index: 1000`.
+</ParamField>
+
+<ParamField path="innerStyles" type="CSSProperties">
+  Inline styles applied to the inner wrapper `div` that contains the bar and text.
+</ParamField>
+
+<ParamField path="barStyles" type="CSSProperties">
+  Inline styles applied to the progress bar `div`. The bar scales on the X axis from 0 to 1 as `progress` advances from 0 to 100.
+</ParamField>
+
+<ParamField path="dataStyles" type="CSSProperties">
+  Inline styles applied to the `<span>` that displays the progress text.
+</ParamField>
+
+<ParamField path="dataInterpolation" type="(progress: number) => string" default="(p) => `Loading ${p.toFixed(2)}%`">
+  Function that converts the current progress value (0–100) to the string displayed below the bar.
+</ParamField>
+
+<ParamField path="initialState" type="(active: boolean) => boolean" default="(active) => active">
+  Function that determines whether the overlay is initially shown before the first `useProgress` update. Return `true` to start with the overlay visible, or `false` to hide it until loading begins.
+</ParamField>
+
+## Customizing the overlay
+
+All visual aspects of the loader can be overridden with style objects and the interpolation function.
+
+```jsx
+<Loader
+  containerStyles={{ background: 'rgba(0,0,0,0.85)' }}
+  innerStyles={{ width: 200, height: 4, background: '#333' }}
+  barStyles={{ background: '#00ff99' }}
+  dataStyles={{ color: '#00ff99', fontSize: '0.75em' }}
+  dataInterpolation={(p) => `${Math.round(p)}%`}
+  initialState={() => true}
+/>
+```
+
+## Behavior
+
+The component animates the progress value with an easing effect — the progress span interpolates toward the target value each frame using a simple lerp, snapping when it reaches 95% of the remaining distance or when progress hits 100. The overlay fades out (opacity transitions to 0) when loading completes, and is removed from the DOM 300ms after `active` becomes `false`.

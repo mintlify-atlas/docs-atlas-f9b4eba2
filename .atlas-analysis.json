@@ -1,22 +1,11 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
-  "name": "drei",
+  "projectType": "sdk-library",
+  "projectName": "drei",
+  "projectDescription": "A growing collection of useful helpers and fully functional, ready-made abstractions for @react-three/fiber.",
   "theme": "luma",
-  "colors": {
-    "primary": "#040404"
-  },
-  "favicon": "https://media.brand.dev/2d144add-0869-4d20-993c-3061c488d458.png",
-  "navbar": {
-    "primary": {
-      "type": "github",
-      "href": "https://github.com/pmndrs/drei"
-    }
-  },
-  "footer": {
-    "socials": {
-      "github": "https://github.com/pmndrs/drei"
-    }
-  },
+  "primaryColor": "#040404",
+  "lightColor": null,
+  "darkColor": null,
   "navigation": {
     "tabs": [
       {
@@ -25,7 +14,7 @@
           {
             "group": "Introduction",
             "pages": [
-              "index",
+              "getting-started/introduction",
               "getting-started/installation",
               "getting-started/react-native"
             ]
@@ -47,13 +36,11 @@
             "group": "Controls",
             "pages": [
               "controls/camera-controls",
-              "controls/orbit-transform-controls",
               "controls/scroll-controls",
               "controls/presentation-controls",
               "controls/keyboard-controls",
               "controls/face-controls",
-              "controls/motion-path-controls",
-              "controls/gizmos"
+              "controls/motion-path-controls"
             ]
           },
           {
@@ -76,9 +63,6 @@
               "abstractions/text",
               "abstractions/text3d",
               "abstractions/billboard",
-              "abstractions/screen-space",
-              "abstractions/positional-audio",
-              "abstractions/gradient-texture",
               "abstractions/effects",
               "abstractions/decal",
               "abstractions/trail",
@@ -89,8 +73,7 @@
               "abstractions/sampler",
               "abstractions/clone",
               "abstractions/outlines",
-              "abstractions/edges",
-              "abstractions/computed-attribute"
+              "abstractions/edges"
             ]
           },
           {
@@ -123,9 +106,7 @@
               "staging/caustics",
               "staging/float",
               "staging/bounds",
-              "staging/center",
-              "staging/lighting-extras",
-              "staging/environment-extras"
+              "staging/center"
             ]
           },
           {
@@ -163,8 +144,7 @@
               "performances/detailed",
               "performances/bvh",
               "performances/performance-monitor",
-              "performances/adaptive-dpr",
-              "performances/performance-extras"
+              "performances/adaptive-dpr"
             ]
           },
           {
@@ -178,14 +158,126 @@
               "misc/use-intersect",
               "misc/use-camera",
               "misc/detect-gpu-use-detect-gpu",
-              "misc/select",
-              "misc/cycle-raycast",
-              "misc/utility-hooks",
-              "misc/curve-modifier"
+              "misc/select"
             ]
           }
         ]
       }
     ]
-  }
+  },
+  "keyFeatures": [
+    "100+ ready-made components and hooks for react-three-fiber",
+    "Camera helpers: PerspectiveCamera, OrthographicCamera, CubeCamera",
+    "Advanced controls: CameraControls, ScrollControls, PresentationControls, FaceControls",
+    "Shader materials: MeshReflectorMaterial, MeshTransmissionMaterial, MeshWobbleMaterial",
+    "Staging helpers: Environment, Stage, Backdrop, AccumulativeShadows, Caustics",
+    "Asset loaders: useGLTF, useTexture, useFBX, useVideoTexture, useKTX2",
+    "Performance utilities: Instances, Bvh, PerformanceMonitor, AdaptiveDpr",
+    "Portal components: Hud, View, RenderTexture, MeshPortalMaterial",
+    "Abstractions: Text, Text3D, Image, Decal, Splat, Trail, MarchingCubes",
+    "React Native support via @react-three/drei/native"
+  ],
+  "publicApiSurface": [
+    "PerspectiveCamera",
+    "OrthographicCamera",
+    "CubeCamera",
+    "CameraControls",
+    "ScrollControls",
+    "PresentationControls",
+    "KeyboardControls",
+    "FaceControls",
+    "MotionPathControls",
+    "GizmoHelper",
+    "PivotControls",
+    "DragControls",
+    "TransformControls",
+    "Grid",
+    "useHelper",
+    "Image",
+    "Text",
+    "Text3D",
+    "Billboard",
+    "Effects",
+    "Decal",
+    "Trail",
+    "Splat",
+    "Svg",
+    "AsciiRenderer",
+    "MarchingCubes",
+    "Sampler",
+    "Clone",
+    "Outlines",
+    "Edges",
+    "MeshReflectorMaterial",
+    "MeshWobbleMaterial",
+    "MeshDistortMaterial",
+    "MeshRefractionMaterial",
+    "MeshTransmissionMaterial",
+    "MeshDiscardMaterial",
+    "PointMaterial",
+    "softShadows",
+    "shaderMaterial",
+    "Environment",
+    "Stage",
+    "Backdrop",
+    "Sky",
+    "Stars",
+    "Sparkles",
+    "Cloud",
+    "SpotLight",
+    "ContactShadows",
+    "AccumulativeShadows",
+    "RandomizedLight",
+    "Caustics",
+    "Float",
+    "Center",
+    "Bounds",
+    "CameraShake",
+    "Hud",
+    "View",
+    "RenderTexture",
+    "RenderCubeTexture",
+    "Mask",
+    "MeshPortalMaterial",
+    "Fisheye",
+    "useGLTF",
+    "useTexture",
+    "useFBX",
+    "useVideoTexture",
+    "useKTX2",
+    "useCubeTexture",
+    "useFont",
+    "useSpriteLoader",
+    "useTrailTexture",
+    "Loader",
+    "useProgress",
+    "Instances",
+    "Merged",
+    "Points",
+    "Segments",
+    "Detailed",
+    "Preload",
+    "BakeShadows",
+    "meshBounds",
+    "AdaptiveDpr",
+    "AdaptiveEvents",
+    "Bvh",
+    "PerformanceMonitor",
+    "Html",
+    "Select",
+    "Stats",
+    "StatsGl",
+    "Wireframe",
+    "useFBO",
+    "useCamera",
+    "useCursor",
+    "useIntersect",
+    "useAspect",
+    "useDepthBuffer",
+    "useDetectGPU",
+    "useContextBridge",
+    "useBoxProjectedEnv",
+    "useAnimations",
+    "useEnvironment"
+  ]
 }

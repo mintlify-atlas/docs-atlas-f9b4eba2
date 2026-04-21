@@ -1,0 +1,86 @@
+---
+title: "Install drei for react-three-fiber"
+description: "Learn how to install @react-three/drei, configure peer dependencies, and start importing helpers into your react-three-fiber project."
+---
+
+drei is a collection of 100+ ready-made components and hooks built on top of [@react-three/fiber](https://github.com/pmndrs/react-three-fiber). It covers cameras, controls, shaders, loaders, staging utilities, and more — so you can spend less time wiring up Three.js primitives and more time building your scene. This page walks you through installing the package, satisfying its peer dependencies, and writing your first import.
+
+## Install the package
+
+Install `@react-three/drei` along with its required peer dependencies: `@react-three/fiber`, `react`, and `three`.
+
+<CodeGroup>
+
+```bash npm
+npm install @react-three/drei @react-three/fiber three react react-dom
+```
+
+```bash yarn
+yarn add @react-three/drei @react-three/fiber three react react-dom
+```
+
+```bash pnpm
+pnpm add @react-three/drei @react-three/fiber three react react-dom
+```
+
+</CodeGroup>
+
+<Note>
+  `react-dom` is optional — it is only required when rendering to the DOM. If you are targeting React Native, you can omit it. See [Using drei with React Native](/getting-started/react-native) for details.
+</Note>
+
+## Peer dependency versions
+
+The table below shows the minimum versions required by the current release of drei.
+
+| Package               | Required version |
+| --------------------- | ---------------- |
+| `@react-three/fiber`  | `^9.0.0`         |
+| `react`               | `^19`            |
+| `three`               | `>=0.159`        |
+| `react-dom`           | `^19` (optional) |
+
+## A note on three-stdlib
+
+drei imports Three.js add-ons from [`three-stdlib`](https://github.com/pmndrs/three-stdlib) instead of `three/examples/jsm`. You do not need to install `three-stdlib` manually — it is bundled as a direct dependency of drei. The key benefit is that `three-stdlib` is distributed as a proper ES module package, which gives you better tree-shaking and more predictable imports than the examples directory.
+
+<Warning>
+  Do not mix `three/examples/jsm` imports with drei components in the same project. Doing so can produce duplicate class instances and silent runtime failures. Prefer `three-stdlib` or drei's re-exports for all shared Three.js utilities.
+</Warning>
+
+## Basic usage
+
+All exports are available from the top-level `@react-three/drei` entry point. Import only what your scene needs — the rest is tree-shaken away.
+
+```jsx
+import { PerspectiveCamera, OrbitControls, Environment } from '@react-three/drei'
+```
+
+Here is a minimal scene that uses drei components inside a `@react-three/fiber` `Canvas`:
+
+```jsx
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
+
+export default function App() {
+  return (
+    <Canvas>
+      <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+      <Environment preset="city" />
+      <mesh>
+        <boxGeometry />
+        <meshStandardMaterial color="hotpink" />
+      </mesh>
+      <OrbitControls />
+    </Canvas>
+  )
+}
+```
+
+<Tip>
+  `PerspectiveCamera` with `makeDefault` replaces the fiber default camera. You only need it when you want explicit control over field of view, near/far planes, or initial position.
+</Tip>
+
+## TypeScript
+
+drei ships with TypeScript declarations — no separate `@types/` package is needed. The `types` field in its `package.json` points directly to the generated `.d.ts` output, so your editor's IntelliSense will pick up types automatically after installation.

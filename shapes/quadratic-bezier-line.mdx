@@ -1,0 +1,133 @@
+---
+title: 'QuadraticBezierLine: smooth arc between two endpoints'
+description: 'Renders a Line2 interpolated along a THREE.QuadraticBezierCurve3. Accepts start, end, and an optional midpoint, with an imperative setPoints API.'
+---
+
+`QuadraticBezierLine` draws a smooth curve between two points using a quadratic Bézier interpolation (`THREE.QuadraticBezierCurve3`). The rendered geometry is a `THREE.Line2`, so all `Line` props such as `color`, `lineWidth`, `dashed`, and `vertexColors` are available. When `mid` is omitted, the control point is computed automatically as the midpoint of `start` and `end` offset vertically by the y-distance between them, producing a natural arc.
+
+The component exposes a `setPoints` method on its ref for imperative updates — useful when the curve endpoints change every frame inside `useFrame`.
+
+## Props
+
+<ParamField path="start" type="Vector3 | [number, number, number]" required>
+  Starting point of the curve. Accepts a `THREE.Vector3` or a three-element array.
+</ParamField>
+
+<ParamField path="end" type="Vector3 | [number, number, number]" required>
+  Ending point of the curve. Accepts a `THREE.Vector3` or a three-element array.
+</ParamField>
+
+<ParamField path="mid" type="Vector3 | [number, number, number]">
+  Optional Bézier control point. When omitted, a control point is derived automatically from the start/end positions to create a gentle arc.
+</ParamField>
+
+<ParamField path="segments" type="number" default="20">
+  Number of subdivisions along the curve. Higher values produce smoother curves.
+</ParamField>
+
+<ParamField path="color" type="ColorRepresentation" default="0xffffff">
+  Line color.
+</ParamField>
+
+<ParamField path="lineWidth" type="number" default="1">
+  Line width in pixels.
+</ParamField>
+
+<ParamField path="dashed" type="boolean" default="false">
+  Enables dashed rendering.
+</ParamField>
+
+<ParamField path="vertexColors" type="Array<Color | [number, number, number] | [number, number, number, number]>">
+  Per-vertex color array matched to the interpolated point count.
+</ParamField>
+
+All additional props from `Line` (`THREE.Line2` and `LineMaterial`) are also accepted.
+
+## Ref API
+
+The ref exposes the underlying `Line2` instance extended with a `setPoints` method:
+
+```ts
+type QuadraticBezierLineRef = Line2 & {
+  setPoints(
+    start: Vector3 | [number, number, number],
+    end: Vector3 | [number, number, number],
+    mid?: Vector3 | [number, number, number]
+  ): void
+}
+```
+
+Call `setPoints` to update the curve geometry without triggering a React re-render. This is the recommended approach for animations.
+
+## Usage
+
+<CodeGroup>
+
+```jsx Static curve
+import { QuadraticBezierLine } from '@react-three/drei'
+
+function Arch() {
+  return (
+    <QuadraticBezierLine
+      start={[-2, 0, 0]}
+      end={[2, 0, 0]}
+      mid={[0, 2, 0]}
+      color="white"
+      lineWidth={2}
+    />
+  )
+}
+```
+
+```jsx Animated via ref
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { QuadraticBezierLine } from '@react-three/drei'
+
+function AnimatedCurve() {
+  const ref = useRef()
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime()
+    ref.current.setPoints(
+      [-2, 0, 0],
+      [2, 0, 0],
+      [0, Math.sin(t) * 2, 0]
+    )
+  })
+
+  return (
+    <QuadraticBezierLine
+      ref={ref}
+      start={[-2, 0, 0]}
+      end={[2, 0, 0]}
+      color="cyan"
+      lineWidth={1.5}
+    />
+  )
+}
+```
+
+```jsx Auto midpoint arc
+import { QuadraticBezierLine } from '@react-three/drei'
+
+// Omitting `mid` creates a natural vertical arc
+function AutoArc() {
+  return (
+    <QuadraticBezierLine
+      start={[0, 0, 0]}
+      end={[4, 2, 0]}
+      segments={40}
+      color="orange"
+      lineWidth={2}
+    />
+  )
+}
+```
+
+</CodeGroup>
+
+<Tip>
+  Use `setPoints` inside `useFrame` for per-frame curve updates. This mutates
+  the geometry buffer directly and avoids the overhead of React reconciliation.
+</Tip>

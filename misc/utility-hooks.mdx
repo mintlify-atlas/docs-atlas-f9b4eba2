@@ -1,0 +1,185 @@
+---
+title: "useAnimations, useAspect, useDepthBuffer, useContextBridge"
+description: "Utility hooks for GLTF animation playback, aspect-ratio scaling, depth buffer FBO creation, and bridging React context into R3F Canvas."
+---
+
+This page documents several utility hooks that don't fit neatly into a single component category but are widely used in React Three Fiber applications.
+
+## useAnimations
+
+`useAnimations` integrates a set of `AnimationClip` objects with a target `Object3D` using `THREE.AnimationMixer`. It returns the mixer, all clips, named actions, and a ref for the root object. This is the standard way to play GLTF animations.
+
+```jsx
+import { useRef } from 'react'
+import { useGLTF, useAnimations } from '@react-three/drei'
+
+function AnimatedModel() {
+  const group = useRef()
+  const { scene, animations } = useGLTF('/model.glb')
+  const { actions } = useAnimations(animations, group)
+
+  useEffect(() => {
+    actions['Walk']?.play()
+  }, [actions])
+
+  return <primitive ref={group} object={scene} />
+}
+```
+
+### Return type
+
+```ts
+type Api<T extends AnimationClip> = {
+  ref: React.RefObject<Object3D>
+  clips: AnimationClip[]
+  mixer: AnimationMixer
+  names: T['name'][]
+  actions: { [key in T['name']]: AnimationAction | null }
+}
+```
+
+### Signature
+
+```ts
+useAnimations<T extends AnimationClip>(
+  clips: T[],
+  root?: RefObject<Object3D> | Object3D
+): Api<T>
+```
+
+---
+
+## useAspect
+
+`useAspect` calculates a scale vector to fit an image or video of a given pixel size into the canvas viewport while maintaining aspect ratio — similar to CSS `object-fit: cover`.
+
+```jsx
+import { useAspect } from '@react-three/drei'
+
+function VideoPlane() {
+  const scale = useAspect(1920, 1080, 1)
+  return (
+    <mesh scale={scale}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial map={videoTexture} />
+    </mesh>
+  )
+}
+```
+
+### Signature
+
+```ts
+useAspect(
+  width: number,   // content pixel width
+  height: number,  // content pixel height
+  factor?: number  // scale multiplier, default: 1
+): [number, number, number]
+```
+
+---
+
+## useDepthBuffer
+
+`useDepthBuffer` creates an FBO with a depth texture attachment and renders the scene into it each frame. The depth buffer is useful for visual effects that need to sample scene depth, such as soft particles or refraction.
+
+```jsx
+import { useDepthBuffer } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
+
+function DepthEffect() {
+  const depthBuffer = useDepthBuffer({ size: 512, frames: 1 })
+  // pass depthBuffer.depthTexture to a custom shader
+  return null
+}
+```
+
+### Options
+
+<ParamField path="size" type="number">
+  Resolution of the depth buffer. Default: `256`.
+</ParamField>
+
+<ParamField path="frames" type="number">
+  How many frames to render per update. `Infinity` re-renders every frame. Default: `Infinity`.
+</ParamField>
+
+Returns a `WebGLRenderTarget` with a `.depthTexture` property.
+
+---
+
+## useContextBridge
+
+`useContextBridge` captures React context values from outside the `<Canvas>` and re-provides them inside. By default, React contexts don't cross the Canvas boundary because Canvas renders in a separate React root.
+
+```jsx
+import { createContext, useContext } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { useContextBridge } from '@react-three/drei'
+
+const ThemeContext = createContext('light')
+
+function App() {
+  const Bridge = useContextBridge(ThemeContext)
+  return (
+    <ThemeContext.Provider value="dark">
+      <Canvas>
+        <Bridge>
+          <Scene />
+        </Bridge>
+      </Canvas>
+    </ThemeContext.Provider>
+  )
+}
+
+function Scene() {
+  const theme = useContext(ThemeContext) // 'dark' ✓
+  return null
+}
+```
+
+### Signature
+
+```ts
+useContextBridge(...contexts: React.Context<any>[]): React.FC<{ children: React.ReactNode }>
+```
+
+Pass any number of context objects. Returns a provider component that wraps children with all captured values.
+
+---
+
+## useBoxProjectedEnv
+
+`useBoxProjectedEnv` applies box-projected environment mapping to a material, correcting the environment reflection for box-shaped rooms. It patches the material shader to use `BOX_PROJECTED_ENV_MAP`.
+
+```jsx
+import { useBoxProjectedEnv } from '@react-three/drei'
+import { useRef } from 'react'
+
+function BoxRoom() {
+  const ref = useRef()
+  const projection = useBoxProjectedEnv([0, 0, 0], [10, 5, 10])
+
+  return (
+    <mesh ref={ref}>
+      <boxGeometry args={[10, 5, 10]} />
+      <meshStandardMaterial
+        envMapIntensity={1}
+        {...projection}
+        side={THREE.BackSide}
+      />
+    </mesh>
+  )
+}
+```
+
+### Signature
+
+```ts
+useBoxProjectedEnv(
+  position?: Vector3 | [number, number, number],
+  size?: Vector3 | [number, number, number]
+): { onBeforeCompile, customProgramCacheKey }
+```
+
+Spread the returned object onto the material's props.

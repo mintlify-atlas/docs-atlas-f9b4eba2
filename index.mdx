@@ -1,97 +1,104 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "drei: React Three Fiber helpers and abstractions"
+description: "drei is a collection of 100+ ready-made components and hooks for @react-three/fiber. Build 3D scenes faster with batteries-included abstractions."
 ---
 
-## Setting up
+drei (German for "three") is a growing collection of useful helpers and fully functional, ready-made abstractions for [@react-three/fiber](https://github.com/pmndrs/react-three-fiber). Whether you need cameras, controls, shaders, loaders, or performance utilities, drei has you covered — so you can focus on building your 3D experience rather than reinventing primitives.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/getting-started/installation">
+    Install drei and set up your first react-three-fiber scene
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="React Native" icon="mobile" href="/getting-started/react-native">
+    Use drei with React Native via the native export
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Controls" icon="gamepad" href="/controls/camera-controls">
+    Camera, scroll, keyboard, face, and motion path controls
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Staging & Lighting" icon="sun" href="/staging/environment">
+    Environment maps, shadows, sky, and atmospheric effects
   </Card>
-</Columns>
+  <Card title="Shaders & Materials" icon="palette" href="/shaders/mesh-transmission-material">
+    Physically-based and stylized materials for Three.js meshes
+  </Card>
+  <Card title="Performance" icon="gauge-high" href="/performances/instances">
+    Instancing, BVH, LOD, and adaptive rendering utilities
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+## What's in drei
 
-Everything you need to create world-class documentation.
+drei covers every major area of 3D web development:
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="Cameras" icon="camera" href="/cameras/perspective-camera">
+    PerspectiveCamera, OrthographicCamera, CubeCamera with built-in controls
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Shapes" icon="shapes" href="/shapes/mesh">
+    Mesh primitives, lines, bezier curves, rounded boxes, and more
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Abstractions" icon="layer-group" href="/abstractions/text">
+    Text, Image, Decal, Trail, Splat, MarchingCubes, and more
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Loaders" icon="box-open" href="/loaders/gltf-use-gltf">
+    useGLTF, useTexture, useFBX, useVideoTexture, and more
   </Card>
-</Columns>
+  <Card title="Portals & Views" icon="window-restore" href="/portals/hud">
+    Hud, View, RenderTexture, Mask, MeshPortalMaterial
+  </Card>
+  <Card title="Misc & Hooks" icon="puzzle-piece" href="/misc/html">
+    HTML overlays, stats, FBO, cursor management, and utility hooks
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Quick start
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Install drei">
+    Add drei and its peer dependencies to your project:
+
+    <CodeGroup>
+    ```bash npm
+    npm install @react-three/drei @react-three/fiber three
+    ```
+    ```bash yarn
+    yarn add @react-three/drei @react-three/fiber three
+    ```
+    ```bash pnpm
+    pnpm add @react-three/drei @react-three/fiber three
+    ```
+    </CodeGroup>
+  </Step>
+  <Step title="Import what you need">
+    drei exports everything from a single package entry point:
+
+    ```jsx
+    import { OrbitControls, Environment, PerspectiveCamera } from '@react-three/drei'
+    ```
+  </Step>
+  <Step title="Use inside a Canvas">
+    All drei components are designed to be used inside a `@react-three/fiber` Canvas:
+
+    ```jsx
+    import { Canvas } from '@react-three/fiber'
+    import { OrbitControls, Environment, Box } from '@react-three/drei'
+
+    export default function App() {
+      return (
+        <Canvas>
+          <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+          <Environment preset="city" />
+          <Box>
+            <meshStandardMaterial />
+          </Box>
+          <OrbitControls />
+        </Canvas>
+      )
+    }
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  drei uses the standalone [`three-stdlib`](https://github.com/pmndrs/three-stdlib) package instead of `three/examples/jsm`, giving you better tree-shaking and more stable imports.
+</Note>

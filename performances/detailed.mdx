@@ -1,0 +1,108 @@
+---
+title: "Detailed: distance-based LOD for Three.js objects"
+description: "Automatically swap between high, medium, and low-detail meshes based on camera distance using THREE.LOD, reducing GPU load for far-away objects."
+---
+
+`Detailed` wraps `THREE.LOD` (Level of Detail) to automatically switch between different representations of an object based on how far the camera is. You provide multiple child meshes ordered from highest to lowest detail, along with a matching `distances` array. Three.js selects the appropriate child every frame using the camera's world position, so objects far from the viewer render with fewer triangles — often with no visible quality difference.
+
+## Basic usage
+
+Children are ordered from highest to lowest detail. The `distances` array specifies the minimum camera distance at which each child becomes active.
+
+```jsx
+import { Detailed } from '@react-three/drei'
+
+function Tree({ highGeo, medGeo, lowGeo }) {
+  return (
+    <Detailed distances={[0, 20, 50]}>
+      <mesh geometry={highGeo} />
+      <mesh geometry={medGeo} />
+      <mesh geometry={lowGeo} />
+    </Detailed>
+  )
+}
+```
+
+In this example:
+- `highGeo` renders from 0 to 20 units away
+- `medGeo` renders from 20 to 50 units away
+- `lowGeo` renders beyond 50 units
+
+## With preloaded GLTF variants
+
+```jsx
+import { useGLTF, Detailed } from '@react-three/drei'
+
+function Building() {
+  const high = useGLTF('/building-high.glb')
+  const low = useGLTF('/building-low.glb')
+
+  return (
+    <Detailed distances={[0, 100]}>
+      <primitive object={high.scene} />
+      <primitive object={low.scene} />
+    </Detailed>
+  )
+}
+```
+
+## Using a billboard as the lowest LOD
+
+For very distant objects, an imposter (a sprite or plane with a pre-rendered image) is often cheaper than even the lowest-poly mesh:
+
+```jsx
+import { Detailed, Billboard } from '@react-three/drei'
+
+function DistantTree({ highGeo, lowGeo }) {
+  return (
+    <Detailed distances={[0, 30, 80]}>
+      <mesh geometry={highGeo} />
+      <mesh geometry={lowGeo} />
+      <Billboard>
+        <mesh>
+          <planeGeometry args={[1, 2]} />
+          <meshBasicMaterial map={treeSprite} transparent />
+        </mesh>
+      </Billboard>
+    </Detailed>
+  )
+}
+```
+
+## Props
+
+<ParamField path="distances" type="number[]" required>
+  Array of camera distances, one per child. The first distance is typically
+  `0` to show the highest-detail child when the camera is nearby. The number
+  of distances must match the number of children.
+</ParamField>
+
+<ParamField path="hysteresis" type="number" default="0">
+  Distance hysteresis applied to each LOD level transition. A non-zero value
+  creates a dead zone around each threshold to prevent visible popping when
+  the camera hovers near a transition distance.
+</ParamField>
+
+Additional props are forwarded to the underlying `THREE.LOD` object
+(e.g. `position`, `rotation`, `visible`).
+
+<Note>
+  `Detailed` calls `lod.update(camera)` inside `useFrame` every render. This
+  is a cheap operation, but if you have thousands of LOD objects the
+  accumulated cost can add up. For very large scenes, consider managing LOD
+  transitions manually or using a spatial data structure to cull distant
+  groups before they reach LOD evaluation.
+</Note>
+
+<Tip>
+  Set `hysteresis` to 5–10% of the transition distance to smooth out LOD
+  switches as the camera moves. For example, with a transition at 50 units,
+  `hysteresis={5}` prevents rapid toggling when the camera oscillates near
+  that boundary.
+</Tip>
+
+<Warning>
+  The number of children must exactly match the length of the `distances`
+  array. A mismatch silently assigns `undefined` distances to some LOD
+  levels, which causes unexpected behavior in `THREE.LOD.update`.
+</Warning>

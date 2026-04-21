@@ -1,0 +1,145 @@
+---
+title: "MeshPortalMaterial: portal window into another scene"
+description: "Turn any mesh surface into a portal window with MeshPortalMaterial. Blend between the world and portal scenes and fade edges with SDF-based blur."
+---
+
+`MeshPortalMaterial` is a shader material that transforms the surface of any mesh into a window into another scene. It uses `RenderTexture` internally, but counteracts the perspective shift of the texture surface so the portal contents appear positioned in world space — as if they exist behind a physical opening in the geometry. The portal can be entered by animating the `blend` prop, which crossfades between the root scene and the portal scene until the portal fills the entire view.
+
+## Props
+
+<ParamField path="children" type="React.ReactNode" required>
+  The 3D content to render inside the portal. Runs in an isolated scene with its own camera and lighting.
+</ParamField>
+
+<ParamField path="blend" type="number" default="0">
+  Controls the transition between the root scene and the portal scene. `0` renders only the root scene (portal is a texture on the mesh), `1` renders only the portal scene, and values in between crossfade both. Animate this to create enter/exit portal transitions.
+</ParamField>
+
+<ParamField path="blur" type="number" default="0">
+  Feathers the edges of the portal mask using SDF (signed distance field) flood-fill. `0` is a hard edge. Higher values produce softer, blurred edges. Requires the material to have `transparent` enabled.
+</ParamField>
+
+<ParamField path="resolution" type="number" default="512">
+  Resolution of the SDF mask texture used for edge blur. Lower values reduce startup time and memory usage.
+</ParamField>
+
+<ParamField path="worldUnits" type="boolean" default="false">
+  By default, portal contents are affected by the mesh's local matrix — they move and rotate with the mesh. Set to `true` to use world-space coordinates so the portal scene stays fixed in the world regardless of where the mesh is.
+</ParamField>
+
+<ParamField path="eventPriority" type="number" default="0">
+  Priority of the portal's event system.
+</ParamField>
+
+<ParamField path="renderPriority" type="number" default="0">
+  Priority passed to the internal `RenderTexture`'s frame callback.
+</ParamField>
+
+<ParamField path="events" type="boolean">
+  When set, enables or disables pointer events inside the portal scene. Defaults to `undefined` (inherits from root).
+</ParamField>
+
+## Basic usage
+
+Attach `MeshPortalMaterial` as the material of any mesh. All children become the portal's scene:
+
+```jsx
+import { MeshPortalMaterial } from '@react-three/drei'
+
+export default function PortalDoor() {
+  return (
+    <mesh>
+      <planeGeometry args={[2, 3]} />
+      <MeshPortalMaterial>
+        <color attach="background" args={['#87ceeb']} />
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[5, 5, 5]} />
+        <mesh position={[0, 0, -2]}>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshStandardMaterial color="limegreen" />
+        </mesh>
+      </MeshPortalMaterial>
+    </mesh>
+  )
+}
+```
+
+## Soft edge blur
+
+Enable `blur` to fade the portal edges. You must also set `transparent` on the material:
+
+```jsx
+<mesh>
+  <circleGeometry args={[1.5, 64]} />
+  <MeshPortalMaterial transparent blur={0.5}>
+    <color attach="background" args={['#1a1a2e']} />
+    <mesh>
+      <torusKnotGeometry args={[0.5, 0.15, 128, 16]} />
+      <meshNormalMaterial />
+    </mesh>
+  </MeshPortalMaterial>
+</mesh>
+```
+
+<Note>
+  Edge blur uses SDF flood-fill on startup, computed from the mesh's geometry. The `resolution` prop controls the SDF texture size — lower values finish faster, higher values give sharper edge detail.
+</Note>
+
+## Entering the portal
+
+Animate the `blend` prop to transition from viewing the portal as a texture on the mesh to fully inhabiting the portal scene. Use a ref to drive the animation:
+
+```jsx
+import { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { MeshPortalMaterial } from '@react-three/drei'
+
+export default function EnterablePortal() {
+  const portalRef = useRef()
+
+  useFrame((state) => {
+    // Lerp blend toward 1 when camera is close, toward 0 when far
+    const dist = state.camera.position.length()
+    portalRef.current.blend = THREE.MathUtils.lerp(
+      portalRef.current.blend,
+      dist < 2 ? 1 : 0,
+      0.05
+    )
+  })
+
+  return (
+    <mesh>
+      <circleGeometry args={[1.5, 64]} />
+      <MeshPortalMaterial ref={portalRef}>
+        <color attach="background" args={['#0d0d1a']} />
+        <Stars />
+        <mesh>
+          <sphereGeometry args={[1, 32, 32]} />
+          <meshStandardMaterial color="purple" emissive="purple" emissiveIntensity={0.5} />
+        </mesh>
+      </MeshPortalMaterial>
+    </mesh>
+  )
+}
+```
+
+<Tip>
+  When `blend` is between `0` and `1`, `MeshPortalMaterial` renders both scenes and composites them with a full-screen quad shader. When `blend` reaches `1`, only the portal scene renders — the render priority is promoted automatically to take over the render loop.
+</Tip>
+
+## World-space portal
+
+By default the portal contents inherit the mesh's local transform. Set `worldUnits` so the inner scene is fixed in world space regardless of the mesh's position or rotation:
+
+```jsx
+<mesh position={[3, 0, 0]} rotation={[0, Math.PI / 4, 0]}>
+  <planeGeometry args={[2, 2]} />
+  <MeshPortalMaterial worldUnits>
+    {/* Scene content positioned in world space */}
+    <mesh position={[0, 0, 0]}>
+      <boxGeometry />
+      <meshNormalMaterial />
+    </mesh>
+  </MeshPortalMaterial>
+</mesh>
+```
